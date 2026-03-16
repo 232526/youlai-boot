@@ -8,19 +8,7 @@ spring:
     url: jdbc:mysql://www.youlai.tech:3306/youlai_admin?zeroDateTimeBehavior=convertToNull&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&autoReconnect=true&allowMultiQueries=true
     username: youlai
     password: 123456
-  # Spring Boot Admin 监控配置
-  boot:
-    admin:
-      # Admin Server 配置
-      server:
-        path: /admin
-      # Admin Client 配置（当前应用注册到 Admin Server）
-      client:
-        enabled: true
-        url: http://localhost:8000/admin
-        instance:
-          name: ${spring.application.name}
-          prefer-ip: true
+
   data:
     redis:
       database: 12
@@ -107,8 +95,6 @@ security:
     - /v3/api-docs/**
     - /webjars/**
     - /favicon.ico
-    - /admin/** # Spring Boot Admin 监控端点
-    - /actuator/** # Actuator 监控端点
 
 # 文件存储配置
 oss:

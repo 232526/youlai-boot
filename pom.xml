@@ -64,8 +64,7 @@
 
         <weixin-java-miniapp.version>4.8.1.B</weixin-java-miniapp.version>
 
-        <!-- Spring Boot Admin 监控 -->
-        <spring-boot-admin.version>4.0.2</spring-boot-admin.version>
+
     </properties>
 
     <dependencies>
@@ -280,20 +279,6 @@
             <groupId>com.github.binarywang</groupId>
             <artifactId>weixin-java-miniapp</artifactId>
             <version>${weixin-java-miniapp.version}</version>
-        </dependency>
-
-        <!-- Spring Boot Admin Server 监控服务端 -->
-        <dependency>
-            <groupId>de.codecentric</groupId>
-            <artifactId>spring-boot-admin-starter-server</artifactId>
-            <version>${spring-boot-admin.version}</version>
-        </dependency>
-
-        <!-- Spring Boot Admin Client 监控客户端（被监控应用注册到服务端） -->
-        <dependency>
-            <groupId>de.codecentric</groupId>
-            <artifactId>spring-boot-admin-starter-client</artifactId>
-            <version>${spring-boot-admin.version}</version>
         </dependency>
 
         <!-- 动态多数据源 -->
