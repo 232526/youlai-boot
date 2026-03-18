@@ -1,4 +1,4 @@
-package com.youlai.boot.support.websocket.dto;
+package com.youlai.boot.support.sse.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

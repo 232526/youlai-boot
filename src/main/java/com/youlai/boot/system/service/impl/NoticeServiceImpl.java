@@ -8,7 +8,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.youlai.boot.core.exception.BusinessException;
-import com.youlai.boot.support.websocket.dto.OnlineUserDTO;
+import com.youlai.boot.support.sse.dto.OnlineUserDTO;
 import com.youlai.boot.security.util.SecurityUtils;
 import com.youlai.boot.system.converter.NoticeConverter;
 import com.youlai.boot.system.enums.NoticePublishStatusEnum;
@@ -27,7 +27,7 @@ import com.youlai.boot.system.model.vo.NoticeDetailVO;
 import com.youlai.boot.system.service.NoticeService;
 import com.youlai.boot.system.service.UserNoticeService;
 import com.youlai.boot.system.service.UserService;
-import com.youlai.boot.support.websocket.service.WebSocketService;
+import com.youlai.boot.support.sse.SseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,7 +52,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
     private final NoticeConverter noticeConverter;
     private final UserNoticeService userNoticeService;
     private final UserService userService;
-    private final WebSocketService webSocketService;
+    private final SseService sseService;
 
     /**
      * 获取通知公告分页列表
@@ -213,7 +213,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             Set<String> receivers = targetUserList.stream().map(User::getUsername).collect(Collectors.toSet());
 
             // 获取在线用户名集合
-            Set<String> allOnlineUsers = webSocketService.getOnlineUsers().stream()
+            Set<String> allOnlineUsers = sseService.getOnlineUsers().stream()
                     .map(OnlineUserDTO::getUsername)
                     .collect(Collectors.toSet());
 
@@ -227,7 +227,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             noticeDto.setPublishTime(notice.getPublishTime());
 
             // 向在线接收者推送通知
-            onlineReceivers.forEach(receiver -> webSocketService.sendNotification(receiver, noticeDto));
+            onlineReceivers.forEach(receiver -> sseService.sendToUser(receiver, "notice", noticeDto));
         }
         return publishResult;
     }
@@ -261,6 +261,19 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             userNoticeService.remove(new LambdaQueryWrapper<UserNotice>()
                     .eq(UserNotice::getNoticeId, id)
             );
+
+            // 通知前端移除该通知
+            NoticeDTO noticeDto = new NoticeDTO();
+            noticeDto.setId(id);
+
+            // 获取所有在线用户
+            Set<String> allOnlineUsers = sseService.getOnlineUsers().stream()
+                    .map(OnlineUserDTO::getUsername)
+                    .collect(Collectors.toSet());
+
+            // 向所有在线用户推送撤回通知
+            allOnlineUsers.forEach(username ->
+                    sseService.sendToUser(username, "notice-revoke", noticeDto));
         }
         return revokeResult;
     }

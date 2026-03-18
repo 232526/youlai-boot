@@ -219,13 +219,3 @@ wx:
   miniapp:
     appid: Your_AppId
     secret: Your_AppSecret
-
-# Actuator 端点配置（监控端点暴露）
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,env,loggers,heapdump,threaddump
-  endpoint:
-    health:
-      show-details: always

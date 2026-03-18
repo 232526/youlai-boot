@@ -40,15 +40,10 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
-        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String rawToken = resolveToken(request);
 
         try {
-            if (StrUtil.isNotBlank(authorizationHeader)
-                    && authorizationHeader.startsWith(SecurityConstants.BEARER_TOKEN_PREFIX)) {
-
-                // 剥离Bearer前缀获取原始令牌
-                String rawToken = authorizationHeader.substring(SecurityConstants.BEARER_TOKEN_PREFIX.length());
-
+            if (StrUtil.isNotBlank(rawToken)) {
                 // 执行令牌有效性检查（包含密码学验签和过期时间验证）
                 boolean isValidToken = tokenManager.validateToken(rawToken);
                 if (!isValidToken) {
@@ -69,5 +64,26 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
         // 继续后续过滤器链执行
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 从请求中解析 Token
+     * 优先从 Authorization Header 获取，其次从 URL 参数获取（支持 SSE）
+     */
+    private String resolveToken(HttpServletRequest request) {
+        // 1. 从 Authorization Header 获取
+        String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (StrUtil.isNotBlank(authorizationHeader)
+                && authorizationHeader.startsWith(SecurityConstants.BEARER_TOKEN_PREFIX)) {
+            return authorizationHeader.substring(SecurityConstants.BEARER_TOKEN_PREFIX.length());
+        }
+
+        // 2. 从 URL 参数获取（支持 SSE EventSource）
+        String tokenParam = request.getParameter("token");
+        if (StrUtil.isNotBlank(tokenParam)) {
+            return tokenParam;
+        }
+
+        return null;
     }
 }

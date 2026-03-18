@@ -49,7 +49,7 @@
 | [vue3-element-template](https://gitee.com/youlaiorg/vue3-element-template) | Vue 3 + Element Plus | 前端精简模板 |
 | [youlai-boot-tenant](https://gitee.com/youlaiorg/youlai-boot-tenant) | Spring Boot 4 | 多租户 SaaS 版 |
 | [youlai-boot-flex](https://gitee.com/youlaiorg/youlai-boot-flex) | Spring Boot 3 + MyBatis-Flex | MyBatis-Flex 版 |
-| [youlai-uniapp](https://gitee.com/youlaiorg/youlai-uniapp) | Vue 3 + uni-app | 移动端应用 |
+| [youlai-app](https://gitee.com/youlaiorg/youlai-app) | Vue 3 + uni-app | 移动端应用 |
 
 ---
 
@@ -167,17 +167,4 @@ docker-compose up -d
   <img src="https://foruda.gitee.com/images/1737108820762592766/3390ed0d_716974.png" width="280">
 </div>
 
-**微信交流**：添加 **`haoxianrui`**，备注「前端/后端/全栈」
-
----
-
-如果项目对你有帮助，欢迎 ⭐️ Star 支持！
-
-<div align="center">
-  <a href="https://gitee.com/youlaiorg/youlai-boot"><b>⭐ Gitee</b></a> &nbsp;•&nbsp;
-  <a href="https://github.com/haoxianrui/youlai-boot"><b>⭐ GitHub</b></a> &nbsp;•&nbsp;
-  <a href="https://atomgit.com/youlai/youlai-boot"><b>⭐ AtomGit</b></a>
-  <br/>
-  <a href="https://www.youlai.tech"><b>🌐 官网</b></a> &nbsp;•&nbsp;
-  <a href="https://youlai.blog.csdn.net/"><b>📝 博客</b></a>
-</div>
+> 二维码过期？添加微信 **`haoxianrui`**，备注「前端/后端/全栈」即可拉你入群。

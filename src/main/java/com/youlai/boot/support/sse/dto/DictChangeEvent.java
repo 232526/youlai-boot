@@ -1,4 +1,4 @@
-package com.youlai.boot.support.websocket.dto;
+package com.youlai.boot.support.sse.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,7 +10,7 @@ import java.io.Serializable;
 /**
  * 字典变更事件
  * <p>
- * 当字典数据发生变更时，通过 WebSocket 广播此事件通知前端清除缓存。
+ * 当字典数据发生变更时，通过 SSE 广播此事件通知前端清除缓存。
  * 前端收到通知后清除对应字典的本地缓存，下次使用时重新从服务端加载。
  *
  * @author Ray.Hao

@@ -31,13 +31,13 @@ public class FileController {
     @Operation(summary = "文件上传")
     public Result<FileInfo> uploadFile(
             @Parameter(
-                    name = "file1",
+                    name = "file",
                     description = "表单文件对象",
                     required = true,
                     in = ParameterIn.DEFAULT,
-                    schema = @Schema(name = "file1", format = "binary")
+                    schema = @Schema(name = "file", format = "binary")
             )
-            @RequestPart(value = "file1") MultipartFile file
+            @RequestPart(value = "file") MultipartFile file
     ) {
         FileInfo fileInfo = fileService.uploadFile(file);
         return Result.success(fileInfo);
