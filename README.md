@@ -97,7 +97,7 @@ spring:
 
 ---
 
-## 📁 项目结构
+## 📁 目录结构
 
 ```
 youlai-boot
@@ -105,15 +105,13 @@ youlai-boot
 ├── sql/                             # 数据库脚本
 ├── src/main/java/com/youlai/boot/
 │   ├── auth/                        # 认证模块
-│   ├── common/                      # 公共模块
-│   ├── config/                      # 配置模块
-│   ├── core/                        # 核心模块（AOP、异常、过滤器）
-│   ├── file/                        # 文件服务
-│   ├── plugin/                      # 插件扩展（Knife4j、MyBatis）
-│   ├── security/                    # 安全模块（JWT、Token）
-│   ├── support/                     # 支撑服务（邮件、短信、WebSocket）
 │   ├── system/                      # 系统模块（用户、角色、菜单、部门）
-│   ├── tool/                        # 工具模块（代码生成）
+│   ├── module/                      # 业务模块（文件、代码生成）
+│   ├── framework/                   # 技术中台（安全、缓存、持久化、集成）
+│   ├── interfaces/                  # 对外接口（SSE）
+│   ├── shared/                      # 跨模块共享（DTO、枚举、常量）
+│   ├── common/                      # 基础能力（结果、异常、切面、工具）
+│   ├── config/                      # 全局配置
 │   └── YouLaiBootApplication.java   # 启动类
 └── pom.xml                          # Maven 配置
 ```

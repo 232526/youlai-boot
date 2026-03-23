@@ -1,11 +1,12 @@
 package com.youlai.boot.system.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.youlai.boot.common.enums.ActionTypeEnum;
 import com.youlai.boot.common.enums.LogModuleEnum;
 import com.youlai.boot.common.annotation.RepeatSubmit;
-import com.youlai.boot.common.model.Option;
-import com.youlai.boot.core.web.PageResult;
-import com.youlai.boot.core.web.Result;
+import com.youlai.boot.shared.dto.Option;
+import com.youlai.boot.common.result.PageResult;
+import com.youlai.boot.common.result.Result;
 import com.youlai.boot.system.model.form.RoleForm;
 import com.youlai.boot.system.model.query.RoleQuery;
 import com.youlai.boot.system.model.vo.RolePageVO;
@@ -38,7 +39,7 @@ public class RoleController {
 
     @Operation(summary = "角色分页列表")
     @GetMapping
-    @Log(value = "角色分页列表", module = LogModuleEnum.ROLE)
+    @Log(module = LogModuleEnum.ROLE, value = ActionTypeEnum.LIST)
     public PageResult<RolePageVO> getRolePage(
             RoleQuery queryParams
     ) {
@@ -57,6 +58,7 @@ public class RoleController {
     @PostMapping
     @PreAuthorize("@ss.hasPerm('sys:role:create')")
     @RepeatSubmit
+    @Log(module = LogModuleEnum.ROLE, value = ActionTypeEnum.INSERT)
     public Result<?> addRole(@Valid @RequestBody RoleForm roleForm) {
         boolean result = roleService.saveRole(roleForm);
         return Result.judge(result);
@@ -75,6 +77,7 @@ public class RoleController {
     @Operation(summary = "修改角色")
     @PutMapping(value = "/{id}")
     @PreAuthorize("@ss.hasPerm('sys:role:update')")
+    @Log(module = LogModuleEnum.ROLE, value = ActionTypeEnum.UPDATE)
     public Result<?> updateRole(@Valid @RequestBody RoleForm roleForm) {
         boolean result = roleService.saveRole(roleForm);
         return Result.judge(result);
@@ -83,6 +86,7 @@ public class RoleController {
     @Operation(summary = "删除角色")
     @DeleteMapping("/{ids}")
     @PreAuthorize("@ss.hasPerm('sys:role:delete')")
+    @Log(module = LogModuleEnum.ROLE, value = ActionTypeEnum.DELETE)
     public Result<Void> deleteRoles(
             @Parameter(description = "删除角色，多个以英文逗号(,)拼接") @PathVariable String ids
     ) {
@@ -93,6 +97,7 @@ public class RoleController {
     @Operation(summary = "修改角色状态")
     @PutMapping(value = "/{roleId}/status")
     @PreAuthorize("@ss.hasPerm('sys:role:update')")
+    @Log(module = LogModuleEnum.ROLE, value = ActionTypeEnum.UPDATE)
     public Result<?> updateRoleStatus(
             @Parameter(description = "角色ID") @PathVariable Long roleId,
             @Parameter(description = "状态(1:启用;0:禁用)") @RequestParam Integer status
@@ -113,6 +118,7 @@ public class RoleController {
     @Operation(summary = "角色分配菜单权限")
     @PutMapping("/{roleId}/menus")
     @PreAuthorize("@ss.hasPerm('sys:role:assign')")
+    @Log(module = LogModuleEnum.ROLE, value = ActionTypeEnum.GRANT)
     public Result<Void> assignMenusToRole(
             @PathVariable Long roleId,
             @RequestBody List<Long> menuIds

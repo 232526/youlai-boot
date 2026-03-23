@@ -9,13 +9,14 @@ import cn.hutool.json.JSONUtil;
 import cn.idev.excel.context.AnalysisContext;
 import cn.idev.excel.event.AnalysisEventListener;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.youlai.boot.common.constant.SystemConstants;
-import com.youlai.boot.common.enums.StatusEnum;
-import com.youlai.boot.core.web.ExcelResult;
+import com.youlai.boot.shared.constant.SystemConstants;
+import com.youlai.boot.shared.enums.StatusEnum;
+import com.youlai.boot.common.result.ExcelResult;
 import com.youlai.boot.system.converter.UserConverter;
 import com.youlai.boot.system.enums.DictCodeEnum;
-import com.youlai.boot.system.model.dto.UserImportDTO;
+import com.youlai.boot.system.model.entity.SysUser;
 import com.youlai.boot.system.model.entity.*;
+import com.youlai.boot.system.model.form.UserImportForm;
 import com.youlai.boot.system.service.*;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +36,7 @@ import java.util.stream.Collectors;
  * @since 2022/4/10
  */
 @Slf4j
-public class UserImportListener extends AnalysisEventListener<UserImportDTO> {
+public class UserImportListener extends AnalysisEventListener<UserImportForm> {
 
     /**
      * Excel 导入结果
@@ -85,7 +86,7 @@ public class UserImportListener extends AnalysisEventListener<UserImportDTO> {
      * @param userImportDto 一行数据，类似于 {@link AnalysisContext#readRowHolder()}
      */
     @Override
-    public void invoke(UserImportDTO userImportDto, AnalysisContext analysisContext) {
+    public void invoke(UserImportForm userImportDto, AnalysisContext analysisContext) {
         log.info("解析到一条用户数据:{}", JSONUtil.toJsonStr(userImportDto));
 
         boolean validation = true;
@@ -95,7 +96,7 @@ public class UserImportListener extends AnalysisEventListener<UserImportDTO> {
             errorMsg += "用户名为空；";
             validation = false;
         } else {
-            long count = userService.count(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+            long count = userService.count(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, username));
             if (count > 0) {
                 errorMsg += "用户名已存在；";
                 validation = false;
@@ -121,7 +122,7 @@ public class UserImportListener extends AnalysisEventListener<UserImportDTO> {
 
         if (validation) {
             // 校验通过，持久化至数据库
-            User entity = userConverter.toEntity(userImportDto);
+            SysUser entity = userConverter.toEntity(userImportDto);
             entity.setPassword(passwordEncoder.encode(SystemConstants.DEFAULT_PASSWORD));   // 默认密码
             // 性别逆向翻译 根据字典标签得到字典值
             String genderLabel = userImportDto.getGenderLabel();

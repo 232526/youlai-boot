@@ -1,7 +1,7 @@
 package com.youlai.boot.auth.service;
 
-import com.youlai.boot.auth.model.vo.CaptchaVO;
-import com.youlai.boot.security.model.AuthenticationToken;
+import com.youlai.boot.framework.integration.captcha.model.CaptchaInfo;
+import com.youlai.boot.framework.security.model.AuthenticationToken;
 
 /**
  * 认证服务接口
@@ -43,10 +43,8 @@ public interface AuthService {
 
     /**
      * 获取验证码
-     *
-     * @return 验证码
      */
-    CaptchaVO getCaptcha();
+    CaptchaInfo getCaptcha();
 
     /**
      * 刷新令牌

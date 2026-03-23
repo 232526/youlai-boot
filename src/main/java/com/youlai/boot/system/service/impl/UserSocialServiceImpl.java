@@ -3,7 +3,7 @@ package com.youlai.boot.system.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.youlai.boot.security.model.UserAuthInfo;
+import com.youlai.boot.framework.security.model.UserAuthInfo;
 import com.youlai.boot.system.enums.SocialPlatformEnum;
 import com.youlai.boot.system.mapper.UserSocialMapper;
 import com.youlai.boot.system.model.entity.UserSocial;

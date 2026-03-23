@@ -7,27 +7,26 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.youlai.boot.core.exception.BusinessException;
-import com.youlai.boot.support.sse.dto.OnlineUserDTO;
-import com.youlai.boot.security.util.SecurityUtils;
+import com.youlai.boot.common.exception.BusinessException;
+import com.youlai.boot.interfaces.sse.dto.OnlineUserDTO;
+import com.youlai.boot.framework.security.util.SecurityUtils;
 import com.youlai.boot.system.converter.NoticeConverter;
 import com.youlai.boot.system.enums.NoticePublishStatusEnum;
 import com.youlai.boot.system.enums.NoticeTargetEnum;
 import com.youlai.boot.system.mapper.NoticeMapper;
-import com.youlai.boot.system.model.bo.NoticeBO;
-import com.youlai.boot.system.model.dto.NoticeDTO;
-import com.youlai.boot.system.model.entity.Notice;
-import com.youlai.boot.system.model.entity.UserNotice;
-import com.youlai.boot.system.model.entity.User;
-import com.youlai.boot.system.model.form.NoticeForm;
-import com.youlai.boot.system.model.query.NoticeQuery;
 import com.youlai.boot.system.model.vo.NoticePageVO;
 import com.youlai.boot.system.model.vo.UserNoticePageVO;
 import com.youlai.boot.system.model.vo.NoticeDetailVO;
+import com.youlai.boot.system.model.vo.NoticeVO;
+import com.youlai.boot.system.model.entity.Notice;
+import com.youlai.boot.system.model.entity.UserNotice;
+import com.youlai.boot.system.model.entity.SysUser;
+import com.youlai.boot.system.model.form.NoticeForm;
+import com.youlai.boot.system.model.query.NoticeQuery;
 import com.youlai.boot.system.service.NoticeService;
 import com.youlai.boot.system.service.UserNoticeService;
 import com.youlai.boot.system.service.UserService;
-import com.youlai.boot.support.sse.SseService;
+import com.youlai.boot.interfaces.sse.service.SseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,11 +61,10 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
      */
     @Override
     public IPage<NoticePageVO> getNoticePage(NoticeQuery queryParams) {
-        Page<NoticeBO> noticePage = this.baseMapper.getNoticePage(
+        return this.baseMapper.getNoticePage(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()),
                 queryParams
         );
-        return noticeConverter.toPageVo(noticePage);
     }
 
     /**
@@ -188,12 +186,12 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
                 targetUserIdList = Arrays.asList(targetUserIds.split(","));
             }
 
-            List<User> targetUserList = userService.list(
-                    new LambdaQueryWrapper<User>()
+            List<SysUser> targetUserList = userService.list(
+                    new LambdaQueryWrapper<SysUser>()
                             // 如果是指定用户，则筛选出指定用户
                             .in(
                                     NoticeTargetEnum.SPECIFIED.getValue().equals(targetType),
-                                    User::getId,
+                                    SysUser::getId,
                                     targetUserIdList
                             )
             );
@@ -210,7 +208,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
                 userNoticeService.saveBatch(userNoticeList);
             }
 
-            Set<String> receivers = targetUserList.stream().map(User::getUsername).collect(Collectors.toSet());
+            Set<String> receivers = targetUserList.stream().map(SysUser::getUsername).collect(Collectors.toSet());
 
             // 获取在线用户名集合
             Set<String> allOnlineUsers = sseService.getOnlineUsers().stream()
@@ -220,14 +218,14 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             // 找出在线用户的通知接收者
             Set<String> onlineReceivers = new HashSet<>(CollectionUtil.intersection(receivers, allOnlineUsers));
 
-            NoticeDTO noticeDto = new NoticeDTO();
-            noticeDto.setId(id);
-            noticeDto.setTitle(notice.getTitle());
-            noticeDto.setType(notice.getType());
-            noticeDto.setPublishTime(notice.getPublishTime());
+            NoticeVO noticeVo = new NoticeVO();
+            noticeVo.setId(id);
+            noticeVo.setTitle(notice.getTitle());
+            noticeVo.setType(notice.getType());
+            noticeVo.setPublishTime(notice.getPublishTime());
 
             // 向在线接收者推送通知
-            onlineReceivers.forEach(receiver -> sseService.sendToUser(receiver, "notice", noticeDto));
+            onlineReceivers.forEach(receiver -> sseService.sendToUser(receiver, "notice", noticeVo));
         }
         return publishResult;
     }
@@ -263,8 +261,8 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             );
 
             // 通知前端移除该通知
-            NoticeDTO noticeDto = new NoticeDTO();
-            noticeDto.setId(id);
+            NoticeVO noticeVo = new NoticeVO();
+            noticeVo.setId(id);
 
             // 获取所有在线用户
             Set<String> allOnlineUsers = sseService.getOnlineUsers().stream()
@@ -273,7 +271,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
 
             // 向所有在线用户推送撤回通知
             allOnlineUsers.forEach(username ->
-                    sseService.sendToUser(username, "notice-revoke", noticeDto));
+                    sseService.sendToUser(username, "notice-revoke", noticeVo));
         }
         return revokeResult;
     }
@@ -285,7 +283,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
      */
     @Override
     public NoticeDetailVO getNoticeDetail(Long id) {
-        NoticeBO noticeBo = this.baseMapper.getNoticeDetail(id);
+        NoticeDetailVO detail = this.baseMapper.getNoticeDetail(id);
         // 更新用户通知公告的阅读状态
         Long userId = SecurityUtils.getUserId();
         userNoticeService.update(new LambdaUpdateWrapper<UserNotice>()
@@ -294,7 +292,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
                 .eq(UserNotice::getIsRead, 0)
                 .set(UserNotice::getIsRead, 1)
         );
-        return noticeConverter.toDetailVo(noticeBo);
+        return detail;
     }
 
     /**

@@ -1,9 +1,10 @@
 package com.youlai.boot.system.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.youlai.boot.common.enums.ActionTypeEnum;
 import com.youlai.boot.common.enums.LogModuleEnum;
-import com.youlai.boot.core.web.PageResult;
-import com.youlai.boot.core.web.Result;
+import com.youlai.boot.common.result.PageResult;
+import com.youlai.boot.common.result.Result;
 import com.youlai.boot.common.annotation.Log;
 import com.youlai.boot.system.model.form.ConfigForm;
 import com.youlai.boot.system.model.query.ConfigQuery;
@@ -37,7 +38,7 @@ public class ConfigController {
     @Operation(summary = "系统配置分页列表")
     @GetMapping
     @PreAuthorize("@ss.hasPerm('sys:config:list')")
-    @Log( value = "系统配置分页列表",module = LogModuleEnum.SETTING)
+    @Log(module = LogModuleEnum.CONFIG, value = ActionTypeEnum.LIST)
     public PageResult<ConfigVO> page(@ParameterObject ConfigQuery queryParams) {
         IPage<ConfigVO> result = configService.page(queryParams);
         return PageResult.success(result);
@@ -46,7 +47,7 @@ public class ConfigController {
     @Operation(summary = "新增系统配置")
     @PostMapping
     @PreAuthorize("@ss.hasPerm('sys:config:create')")
-    @Log( value = "新增系统配置",module = LogModuleEnum.SETTING)
+    @Log(module = LogModuleEnum.CONFIG, value = ActionTypeEnum.INSERT)
     public Result<?> save(@RequestBody @Valid ConfigForm configForm) {
         return Result.judge(configService.save(configForm));
     }
@@ -63,7 +64,7 @@ public class ConfigController {
     @Operation(summary = "刷新系统配置缓存")
     @PutMapping("/refresh")
     @PreAuthorize("@ss.hasPerm('sys:config:refresh')")
-    @Log( value = "刷新系统配置缓存",module = LogModuleEnum.SETTING)
+    @Log(module = LogModuleEnum.CONFIG, value = ActionTypeEnum.UPDATE)
     public Result<ConfigForm> refreshCache() {
         return Result.judge(configService.refreshCache());
     }
@@ -71,7 +72,7 @@ public class ConfigController {
     @Operation(summary = "修改系统配置")
     @PutMapping(value = "/{id}")
     @PreAuthorize("@ss.hasPerm('sys:config:update')")
-    @Log( value = "修改系统配置",module = LogModuleEnum.SETTING)
+    @Log(module = LogModuleEnum.CONFIG, value = ActionTypeEnum.UPDATE)
     public Result<?> update(@Valid @PathVariable Long id, @RequestBody ConfigForm configForm) {
         return Result.judge(configService.edit(id, configForm));
     }
@@ -79,7 +80,7 @@ public class ConfigController {
     @Operation(summary = "删除系统配置")
     @DeleteMapping("/{id}")
     @PreAuthorize("@ss.hasPerm('sys:config:delete')")
-    @Log( value = "删除系统配置",module = LogModuleEnum.SETTING)
+    @Log(module = LogModuleEnum.CONFIG, value = ActionTypeEnum.DELETE)
     public Result<?> delete(@PathVariable Long id) {
         return Result.judge(configService.delete(id));
     }

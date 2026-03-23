@@ -10,26 +10,34 @@
         SELECT
             t1.id,
             t1.module,
+            t1.action_type AS actionType,
+            t1.title,
             t1.content,
-            t1.request_uri,
+            t1.operator_id AS operatorId,
+            t1.operator_name AS operatorName,
+            t1.request_uri AS requestUri,
+            t1.request_method AS requestMethod,
             t1.ip,
-            CONCAT(t1.province," ", t1.city) AS region,
-            t1.execution_time,
-            CONCAT(t1.browser," ", t1.browser_version) AS browser,
+            CONCAT(t1.province, " ", t1.city) AS region,
+            t1.device,
             t1.os,
-            t1.create_time,
-            t2.nickname AS operator
+            t1.browser,
+            t1.status,
+            t1.execution_time AS executionTime,
+            t1.error_msg AS errorMsg,
+            t1.create_time AS createTime
         FROM
             sys_log t1
-            LEFT JOIN sys_user t2 ON t1.create_by = t2.id
         <where>
             <if test="queryParams.keywords != null and queryParams.keywords != ''">
                 AND (
+                    t1.title LIKE concat('%',#{queryParams.keywords},'%')
+                    OR
                     t1.content LIKE concat('%',#{queryParams.keywords},'%')
                     OR
                     t1.ip LIKE concat('%',#{queryParams.keywords},'%')
                     OR
-                    t2.nickname LIKE concat('%',#{queryParams.keywords},'%')
+                    t1.operator_name LIKE concat('%',#{queryParams.keywords},'%')
                 )
             </if>
             <if test="queryParams.createTime != null and queryParams.createTime.size > 0">
@@ -48,7 +56,7 @@
     </select>
 
     <!-- 获取访问量日统计列表  -->
-    <select id="getPvCounts" resultType="com.youlai.boot.system.model.bo.VisitCountBO">
+    <select id="getPvCounts" resultType="com.youlai.boot.system.model.dto.VisitCountDTO">
         SELECT
             COUNT(1) AS count,
             DATE_FORMAT(create_time,'%Y-%m-%d') AS date
@@ -61,7 +69,7 @@
     </select>
 
     <!-- 获取IP日统计列表-->
-    <select id="getIpCounts" resultType="com.youlai.boot.system.model.bo.VisitCountBO">
+    <select id="getIpCounts" resultType="com.youlai.boot.system.model.dto.VisitCountDTO">
         SELECT
             COUNT(DISTINCT ip) AS count,
             DATE_FORMAT(create_time, '%Y-%m-%d') AS date
@@ -74,10 +82,10 @@
     </select>
 
     <!-- 获取访问量(PV)统计数据 mysql版本-->
-    <select id="getPvStats" resultType="com.youlai.boot.system.model.bo.VisitStatsBO" databaseId="mysql">
+    <select id="getPvStats" resultType="com.youlai.boot.system.model.vo.VisitOverviewVO" databaseId="mysql">
         SELECT
-            COUNT(CASE WHEN DATE(create_time) = CURDATE() THEN 1 END) AS todayCount,
-            COUNT(*) AS totalCount,
+            COUNT(CASE WHEN DATE(create_time) = CURDATE() THEN 1 END) AS todayPvCount,
+            COUNT(*) AS totalPvCount,
             ROUND(
                     CASE
                         WHEN COUNT(CASE WHEN DATE(create_time) = CURDATE() - INTERVAL 1 DAY AND TIME(create_time) &lt;= TIME(NOW()) THEN 1 END) = 0 THEN 0
@@ -86,16 +94,16 @@
                              COUNT(CASE WHEN DATE(create_time) = CURDATE() - INTERVAL 1 DAY AND TIME(create_time)  &lt;= TIME(NOW()) THEN 1 END)) /
                             COUNT(CASE WHEN DATE(create_time) = CURDATE() - INTERVAL 1 DAY AND TIME(create_time)  &lt;= TIME(NOW()) THEN 1 END)
                         END,
-                    2) AS growthRate
+                    2) AS pvGrowthRate
         FROM
             sys_log
     </select>
 
     <!-- 获取IP统计数据 mysql版本-->
-    <select id="getUvStats" resultType="com.youlai.boot.system.model.bo.VisitStatsBO" databaseId="mysql">
+    <select id="getUvStats" resultType="com.youlai.boot.system.model.vo.VisitOverviewVO" databaseId="mysql">
             SELECT
-                COUNT(DISTINCT CASE WHEN DATE(create_time) = CURDATE() THEN ip END) AS todayCount,
-                COUNT(DISTINCT ip) AS totalCount,
+                COUNT(DISTINCT CASE WHEN DATE(create_time) = CURDATE() THEN ip END) AS todayUvCount,
+                COUNT(DISTINCT ip) AS totalUvCount,
                 ROUND(
                     CASE
                         WHEN COUNT(DISTINCT CASE WHEN DATE(create_time) = CURDATE() - INTERVAL 1 DAY AND TIME(create_time) &lt;= TIME(NOW()) THEN ip END) = 0 THEN 0
@@ -104,9 +112,10 @@
                         COUNT(DISTINCT CASE WHEN DATE(create_time) = CURDATE() - INTERVAL 1 DAY AND TIME(create_time) &lt;= TIME(NOW()) THEN ip END)) /
                         COUNT(DISTINCT CASE WHEN DATE(create_time) = CURDATE() - INTERVAL 1 DAY AND TIME(create_time) &lt;= TIME(NOW()) THEN ip END)
                     END,
-                2) AS growthRate
+                2) AS uvGrowthRate
             FROM
                 sys_log
     </select>
+
 
 </mapper>

@@ -1,6 +1,6 @@
 package com.youlai.boot.common.annotation;
 
-import com.youlai.boot.core.validator.FieldValidator;
+import com.youlai.boot.common.validator.FieldValidator;
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
 

@@ -85,8 +85,7 @@ security:
     - /api/v1/auth/sms/code # 发送登录短信验证码
     - /api/v1/auth/refresh-token # 刷新令牌接口
     - /api/v1/wechat/miniapp/auth/** # 微信小程序认证接口(静默登录/手机号快捷登录/绑定手机号)
-    - /api/v1/statistics/** # 统计分析接口(访问趋势/访问概览)
-    - /ws/** # WebSocket接口
+    - /api/v1/logs/** # 日志接口(访问日志列表)
   # 非安全端点路径，完全绕过 Spring Security 的过滤器
   unsecured-urls:
     - ${springdoc.swagger-ui.path}
@@ -157,8 +156,8 @@ springdoc:
       packages-to-scan: # 扫描的 Controller 包，限制只生成指定包的接口文档
         - com.youlai.boot.auth.controller
         - com.youlai.boot.system.controller
-        - com.youlai.boot.file.controller
-        - com.youlai.boot.tool.codegen.controller
+        - com.youlai.boot.module.file.controller
+        - com.youlai.boot.module.codegen.controller
   default-flat-param-object: true # 将对象参数扁平化显示在文档中
 
 # knife4j 配置

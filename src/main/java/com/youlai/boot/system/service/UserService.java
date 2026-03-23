@@ -2,11 +2,11 @@ package com.youlai.boot.system.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.youlai.boot.common.model.Option;
-import com.youlai.boot.security.model.UserAuthInfo;
-import com.youlai.boot.system.model.dto.CurrentUserDTO;
-import com.youlai.boot.system.model.dto.UserExportDTO;
-import com.youlai.boot.system.model.entity.User;
+import com.youlai.boot.shared.dto.Option;
+import com.youlai.boot.framework.security.model.UserAuthInfo;
+import com.youlai.boot.system.model.vo.CurrentUserVO;
+import com.youlai.boot.system.model.vo.UserExportVO;
+import com.youlai.boot.system.model.entity.SysUser;
 import com.youlai.boot.system.model.query.UserQuery;
 import com.youlai.boot.system.model.vo.UserPageVO;
 import com.youlai.boot.system.model.vo.UserProfileVO;
@@ -20,7 +20,7 @@ import java.util.List;
  * @author Ray.Hao
  * @since 2022/1/14
  */
-public interface UserService extends IService<User> {
+public interface UserService extends IService<SysUser> {
 
     /**
      * 用户分页列表
@@ -82,17 +82,17 @@ public interface UserService extends IService<User> {
      * 获取导出用户列表
      *
      * @param queryParams 查询参数
-     * @return {@link List<UserExportDTO>} 导出用户列表
+     * @return {@link List<UserExportVO>} 导出用户列表
      */
-    List<UserExportDTO> listExportUsers(UserQuery queryParams);
+    List<UserExportVO> listExportUsers(UserQuery queryParams);
 
 
     /**
      * 获取登录用户信息
      *
-     * @return {@link CurrentUserDTO} 登录用户信息
+     * @return {@link CurrentUserVO} 登录用户信息
      */
-    CurrentUserDTO getCurrentUserInfo();
+    CurrentUserVO getCurrentUserInfo();
 
     /**
      * 获取个人中心用户信息

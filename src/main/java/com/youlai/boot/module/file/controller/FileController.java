@@ -1,6 +1,6 @@
 package com.youlai.boot.module.file.controller;
 
-import com.youlai.boot.core.web.Result;
+import com.youlai.boot.common.result.Result;
 import com.youlai.boot.module.file.service.FileService;
 import com.youlai.boot.module.file.model.FileInfo;
 import io.swagger.v3.oas.annotations.Parameter;

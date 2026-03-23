@@ -3,12 +3,12 @@ package com.youlai.boot.system.service.impl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.youlai.boot.system.mapper.LogMapper;
-import com.youlai.boot.system.model.bo.VisitCountBO;
-import com.youlai.boot.system.model.bo.VisitStatsBO;
-import com.youlai.boot.system.model.entity.Log;
+import com.youlai.boot.system.model.dto.VisitCountDTO;
+import com.youlai.boot.system.model.vo.VisitOverviewVO;
+import com.youlai.boot.system.model.entity.SysLog;
 import com.youlai.boot.system.model.query.LogQuery;
 import com.youlai.boot.system.model.vo.LogPageVO;
-import com.youlai.boot.system.model.vo.VisitStatsVO;
+import com.youlai.boot.system.model.vo.VisitOverviewVO;
 import com.youlai.boot.system.model.vo.VisitTrendVO;
 import com.youlai.boot.system.service.LogService;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  * @since 2.10.0
  */
 @Service
-public class LogServiceImpl extends ServiceImpl<LogMapper, Log>
+public class LogServiceImpl extends ServiceImpl<LogMapper, SysLog>
         implements LogService {
 
     /**
@@ -61,12 +61,12 @@ public class LogServiceImpl extends ServiceImpl<LogMapper, Log>
         visitTrend.setDates(dates);
 
         // 获取访问量和访问 IP 数的统计数据
-        List<VisitCountBO> pvCounts = this.baseMapper.getPvCounts(dates.get(0) + " 00:00:00", dates.get(dates.size() - 1) + " 23:59:59");
-        List<VisitCountBO> ipCounts = this.baseMapper.getIpCounts(dates.get(0) + " 00:00:00", dates.get(dates.size() - 1) + " 23:59:59");
+        List<VisitCountDTO> pvCounts = this.baseMapper.getPvCounts(dates.get(0) + " 00:00:00", dates.get(dates.size() - 1) + " 23:59:59");
+        List<VisitCountDTO> ipCounts = this.baseMapper.getIpCounts(dates.get(0) + " 00:00:00", dates.get(dates.size() - 1) + " 23:59:59");
 
         // 将统计数据转换为 Map
-        Map<String, Integer> pvMap = pvCounts.stream().collect(Collectors.toMap(VisitCountBO::getDate, VisitCountBO::getCount));
-        Map<String, Integer> ipMap = ipCounts.stream().collect(Collectors.toMap(VisitCountBO::getDate, VisitCountBO::getCount));
+        Map<String, Integer> pvMap = pvCounts.stream().collect(Collectors.toMap(VisitCountDTO::getDate, VisitCountDTO::getCount));
+        Map<String, Integer> ipMap = ipCounts.stream().collect(Collectors.toMap(VisitCountDTO::getDate, VisitCountDTO::getCount));
 
         // 匹配日期和访问量/访问 IP 数
         List<Integer> pvList = new ArrayList<>();
@@ -87,23 +87,23 @@ public class LogServiceImpl extends ServiceImpl<LogMapper, Log>
      * 访问量统计
      */
     @Override
-    public VisitStatsVO getVisitStats() {
-        VisitStatsVO result = new VisitStatsVO();
+    public VisitOverviewVO getVisitStats() {
+        VisitOverviewVO result = new VisitOverviewVO();
 
         // 访客数统计(UV)
-        VisitStatsBO uvStats = this.baseMapper.getUvStats();
+        VisitOverviewVO uvStats = this.baseMapper.getUvStats();
         if(uvStats!=null){
-            result.setTodayUvCount(uvStats.getTodayCount());
-            result.setTotalUvCount(uvStats.getTotalCount());
-            result.setUvGrowthRate(uvStats.getGrowthRate());
+            result.setTodayUvCount(uvStats.getTodayUvCount());
+            result.setTotalUvCount(uvStats.getTotalUvCount());
+            result.setUvGrowthRate(uvStats.getUvGrowthRate());
         }
 
         // 浏览量统计(PV)
-        VisitStatsBO pvStats = this.baseMapper.getPvStats();
+        VisitOverviewVO pvStats = this.baseMapper.getPvStats();
         if(pvStats!=null){
-            result.setTodayPvCount(pvStats.getTodayCount());
-            result.setTotalPvCount(pvStats.getTotalCount());
-            result.setPvGrowthRate(pvStats.getGrowthRate());
+            result.setTodayPvCount(pvStats.getTodayPvCount());
+            result.setTotalPvCount(pvStats.getTotalPvCount());
+            result.setPvGrowthRate(pvStats.getPvGrowthRate());
         }
 
         return result;

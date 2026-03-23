@@ -1,24 +1,21 @@
 package com.youlai.boot.auth.service.impl;
 
-import cn.binarywang.wx.miniapp.api.WxMaService;
-import cn.hutool.captcha.AbstractCaptcha;
-import cn.hutool.captcha.CaptchaUtil;
-import cn.hutool.captcha.generator.CodeGenerator;
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import com.youlai.boot.auth.model.vo.CaptchaVO;
 import com.youlai.boot.auth.service.AuthService;
 import com.youlai.boot.common.constant.RedisConstants;
-import com.youlai.boot.common.enums.CaptchaTypeEnum;
-import com.youlai.boot.config.property.CaptchaProperties;
-import com.youlai.boot.security.model.AuthenticationToken;
-import com.youlai.boot.security.model.SmsAuthenticationToken;
-import com.youlai.boot.security.token.TokenManager;
-import com.youlai.boot.security.util.SecurityUtils;
-import com.youlai.boot.support.sms.enums.SmsTypeEnum;
-import com.youlai.boot.support.sms.service.SmsService;
-import com.youlai.boot.system.service.UserSocialService;
-import com.youlai.boot.system.service.UserService;
+import com.youlai.boot.common.enums.ActionTypeEnum;
+import com.youlai.boot.common.util.IPUtils;
+import com.youlai.boot.framework.integration.captcha.model.CaptchaInfo;
+import com.youlai.boot.framework.integration.captcha.service.CaptchaService;
+import com.youlai.boot.framework.security.model.AuthenticationToken;
+import com.youlai.boot.framework.security.model.SmsAuthenticationToken;
+import com.youlai.boot.framework.security.token.TokenManager;
+import com.youlai.boot.framework.security.util.SecurityUtils;
+import com.youlai.boot.framework.integration.sms.enums.SmsTypeEnum;
+import com.youlai.boot.framework.integration.sms.service.SmsService;
+import com.youlai.boot.system.model.entity.SysLog;
+import com.youlai.boot.system.service.LogService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -27,8 +24,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
-import java.awt.*;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -47,12 +46,10 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final TokenManager tokenManager;
 
-    private final Font captchaFont;
-    private final CaptchaProperties captchaProperties;
-    private final CodeGenerator codeGenerator;
-
     private final SmsService smsService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final CaptchaService captchaService;
+    private final LogService logService;
     /**
      * 用户名密码登录
      *
@@ -124,7 +121,6 @@ public class AuthServiceImpl implements AuthService {
         // 3. 认证成功后生成 JWT 令牌，并存入 Security 上下文，供登录日志 AOP 使用（已认证）
         AuthenticationToken authenticationToken = tokenManager.generateToken(authentication);
         SecurityContextHolder.getContext().setAuthentication(authentication);
-
         return authenticationToken;
     }
 
@@ -143,50 +139,10 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * 获取验证码
-     *
-     * @return 验证码
      */
     @Override
-    public CaptchaVO getCaptcha() {
-
-        String captchaType = captchaProperties.getType();
-        int width = captchaProperties.getWidth();
-        int height = captchaProperties.getHeight();
-        int interfereCount = captchaProperties.getInterfereCount();
-        int codeLength = captchaProperties.getCode().getLength();
-
-        AbstractCaptcha captcha;
-        if (CaptchaTypeEnum.CIRCLE.name().equalsIgnoreCase(captchaType)) {
-            captcha = CaptchaUtil.createCircleCaptcha(width, height, codeLength, interfereCount);
-        } else if (CaptchaTypeEnum.GIF.name().equalsIgnoreCase(captchaType)) {
-            captcha = CaptchaUtil.createGifCaptcha(width, height, codeLength);
-        } else if (CaptchaTypeEnum.LINE.name().equalsIgnoreCase(captchaType)) {
-            captcha = CaptchaUtil.createLineCaptcha(width, height, codeLength, interfereCount);
-        } else if (CaptchaTypeEnum.SHEAR.name().equalsIgnoreCase(captchaType)) {
-            captcha = CaptchaUtil.createShearCaptcha(width, height, codeLength, interfereCount);
-        } else {
-            throw new IllegalArgumentException("Invalid captcha type: " + captchaType);
-        }
-        captcha.setGenerator(codeGenerator);
-        captcha.setTextAlpha(captchaProperties.getTextAlpha());
-        captcha.setFont(captchaFont);
-
-        String captchaCode = captcha.getCode();
-        String imageBase64Data = captcha.getImageBase64Data();
-
-        // 验证码文本缓存至Redis，用于登录校验
-        String captchaId = IdUtil.fastSimpleUUID();
-        redisTemplate.opsForValue().set(
-                StrUtil.format(RedisConstants.Captcha.IMAGE_CODE, captchaId),
-                captchaCode,
-                captchaProperties.getExpireSeconds(),
-                TimeUnit.SECONDS
-        );
-
-        return CaptchaVO.builder()
-                .captchaId(captchaId)
-                .captchaBase64(imageBase64Data)
-                .build();
+    public CaptchaInfo getCaptcha() {
+        return captchaService.generate();
     }
 
     /**

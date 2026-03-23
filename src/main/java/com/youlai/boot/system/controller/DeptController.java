@@ -1,9 +1,10 @@
 package com.youlai.boot.system.controller;
 
+import com.youlai.boot.common.enums.ActionTypeEnum;
 import com.youlai.boot.common.enums.LogModuleEnum;
 import com.youlai.boot.common.annotation.RepeatSubmit;
-import com.youlai.boot.common.model.Option;
-import com.youlai.boot.core.web.Result;
+import com.youlai.boot.shared.dto.Option;
+import com.youlai.boot.common.result.Result;
 import com.youlai.boot.system.model.form.DeptForm;
 import com.youlai.boot.system.model.query.DeptQuery;
 import com.youlai.boot.system.model.vo.DeptVO;
@@ -35,7 +36,7 @@ public class DeptController {
 
     @Operation(summary = "部门列表")
     @GetMapping
-    @Log( value = "部门列表",module = LogModuleEnum.DEPT)
+    @Log(module = LogModuleEnum.DEPT, value = ActionTypeEnum.LIST)
     public Result<List<DeptVO>> getDeptList(
              DeptQuery queryParams
     ) {
@@ -54,6 +55,7 @@ public class DeptController {
     @PostMapping
     @PreAuthorize("@ss.hasPerm('sys:dept:create')")
     @RepeatSubmit
+    @Log(module = LogModuleEnum.DEPT, value = ActionTypeEnum.INSERT)
     public Result<?> saveDept(
             @Valid @RequestBody DeptForm formData
     ) {
@@ -73,6 +75,7 @@ public class DeptController {
     @Operation(summary = "修改部门")
     @PutMapping(value = "/{deptId}")
     @PreAuthorize("@ss.hasPerm('sys:dept:update')")
+    @Log(module = LogModuleEnum.DEPT, value = ActionTypeEnum.UPDATE)
     public Result<?> updateDept(
             @PathVariable Long deptId,
             @Valid @RequestBody DeptForm formData
@@ -84,6 +87,7 @@ public class DeptController {
     @Operation(summary = "删除部门")
     @DeleteMapping("/{ids}")
     @PreAuthorize("@ss.hasPerm('sys:dept:delete')")
+    @Log(module = LogModuleEnum.DEPT, value = ActionTypeEnum.DELETE)
     public Result<?> deleteDepartments(
             @Parameter(description ="部门ID，多个以英文逗号(,)分割") @PathVariable("ids") String ids
     ) {

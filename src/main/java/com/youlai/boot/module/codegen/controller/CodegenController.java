@@ -1,9 +1,10 @@
 package com.youlai.boot.module.codegen.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.youlai.boot.core.web.PageResult;
-import com.youlai.boot.core.web.Result;
+import com.youlai.boot.common.result.PageResult;
+import com.youlai.boot.common.result.Result;
 import com.youlai.boot.config.property.CodegenProperties;
+import com.youlai.boot.common.enums.ActionTypeEnum;
 import com.youlai.boot.common.enums.LogModuleEnum;
 import com.youlai.boot.module.codegen.service.CodegenService;
 import com.youlai.boot.module.codegen.model.form.GenConfigForm;
@@ -45,7 +46,6 @@ public class CodegenController {
 
     @Operation(summary = "获取数据表分页列表")
     @GetMapping("/table")
-    @Log(value = "代码生成分页列表", module = LogModuleEnum.OTHER)
     public PageResult<TablePageVO> getTablePage(
             TableQuery queryParams
     ) {
@@ -64,7 +64,7 @@ public class CodegenController {
 
     @Operation(summary = "保存代码生成配置")
     @PostMapping("/{tableName}/config")
-    @Log(value = "生成代码", module = LogModuleEnum.OTHER)
+    @Log(module = LogModuleEnum.CODEGEN, value = ActionTypeEnum.UPDATE)
     public Result<?> saveGenConfig(@RequestBody GenConfigForm formData) {
         genTableService.saveGenConfig(formData);
         return Result.success();
@@ -81,7 +81,6 @@ public class CodegenController {
 
     @Operation(summary = "获取预览生成代码")
     @GetMapping("/{tableName}/preview")
-    @Log(value = "预览生成代码", module = LogModuleEnum.OTHER)
     public Result<List<CodegenPreviewVO>> getTablePreviewData(@PathVariable String tableName,
                                                               @RequestParam(value = "pageType", required = false, defaultValue = "classic") String pageType,
                                                               @RequestParam(value = "type", required = false, defaultValue = "ts") String type) {
@@ -91,7 +90,7 @@ public class CodegenController {
 
     @Operation(summary = "下载代码")
     @GetMapping("/{tableName}/download")
-    @Log(value = "下载代码", module = LogModuleEnum.OTHER)
+    @Log(module = LogModuleEnum.CODEGEN, value = ActionTypeEnum.DOWNLOAD)
     public void downloadZip(HttpServletResponse response, @PathVariable String tableName,
                             @RequestParam(value = "pageType", required = false, defaultValue = "classic") String pageType,
                             @RequestParam(value = "type", required = false, defaultValue = "ts") String type) {

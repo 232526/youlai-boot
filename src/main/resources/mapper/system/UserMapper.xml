@@ -6,7 +6,7 @@
 <mapper namespace="com.youlai.boot.system.mapper.UserMapper">
 
     <!-- 用户分页列表 mysql版本-->
-    <select id="getUserPage" resultType="com.youlai.boot.system.model.bo.UserBO" databaseId="mysql">
+    <select id="getUserPage" resultType="com.youlai.boot.system.model.vo.UserPageVO" databaseId="mysql">
         SELECT
             u.id,
             u.username,
@@ -34,7 +34,7 @@
                 INNER JOIN sys_role r ON sur.role_id = r.id
             WHERE
                 sur.user_id = u.id
-                AND r.code = '${@com.youlai.boot.common.constant.SystemConstants@ROOT_ROLE_CODE}'
+                AND r.code = '${@com.youlai.boot.shared.constant.SystemConstants@ROOT_ROLE_CODE}'
             )
             <if test='queryParams.keywords!=null and queryParams.keywords.trim() neq ""'>
                 AND (
@@ -118,7 +118,7 @@
     </select>
 
     <!-- 用户认证信息映射 -->
-    <resultMap id="AuthCredentialsMap" type="com.youlai.boot.security.model.UserAuthInfo">
+    <resultMap id="AuthCredentialsMap" type="com.youlai.boot.framework.security.model.UserAuthInfo">
         <id property="userId" column="userId" jdbcType="BIGINT"/>
         <result property="username" column="username" jdbcType="VARCHAR"/>
         <result property="password" column="password" jdbcType="VARCHAR"/>
@@ -165,7 +165,7 @@
     </select>
 
     <!-- 获取用户导出列表 -->
-    <select id="listExportUsers" resultType="com.youlai.boot.system.model.dto.UserExportDTO">
+    <select id="listExportUsers" resultType="com.youlai.boot.system.model.vo.UserExportVO">
         SELECT
             u.username,
             u.nickname,
@@ -186,7 +186,7 @@
                     INNER JOIN sys_role r ON sur.role_id = r.id
                 WHERE
                     sur.user_id = u.id
-                    AND r.code = '${@com.youlai.boot.common.constant.SystemConstants@ROOT_ROLE_CODE}'
+                    AND r.code = '${@com.youlai.boot.shared.constant.SystemConstants@ROOT_ROLE_CODE}'
             )
             <if test='keywords!=null and keywords.trim() neq ""'>
                 AND (u.username LIKE CONCAT('%',#{keywords},'%')
@@ -204,7 +204,7 @@
     </select>
 
     <!-- 根据用户ID获取用户详情 mysql版本-->
-    <select id="getUserProfile" resultType="com.youlai.boot.system.model.bo.UserBO" databaseId="mysql">
+    <select id="getUserProfile" resultType="com.youlai.boot.system.model.vo.UserProfileVO" databaseId="mysql">
         SELECT
             u.id,
             u.username,

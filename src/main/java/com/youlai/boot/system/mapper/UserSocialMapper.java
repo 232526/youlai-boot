@@ -1,7 +1,7 @@
 package com.youlai.boot.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.youlai.boot.security.model.UserAuthInfo;
+import com.youlai.boot.framework.security.model.UserAuthInfo;
 import com.youlai.boot.system.model.entity.UserSocial;
 import org.apache.ibatis.annotations.Mapper;
 

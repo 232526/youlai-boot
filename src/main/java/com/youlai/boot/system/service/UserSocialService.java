@@ -1,7 +1,7 @@
 package com.youlai.boot.system.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.youlai.boot.security.model.UserAuthInfo;
+import com.youlai.boot.framework.security.model.UserAuthInfo;
 import com.youlai.boot.system.enums.SocialPlatformEnum;
 import com.youlai.boot.system.model.entity.UserSocial;
 

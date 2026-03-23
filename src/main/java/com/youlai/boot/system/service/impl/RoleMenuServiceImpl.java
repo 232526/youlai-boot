@@ -4,7 +4,7 @@ import cn.hutool.core.collection.CollectionUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.youlai.boot.common.constant.RedisConstants;
 import com.youlai.boot.system.mapper.RoleMenuMapper;
-import com.youlai.boot.system.model.bo.RolePermsBO;
+import com.youlai.boot.system.model.dto.RolePermsDTO;
 import com.youlai.boot.system.model.entity.RoleMenu;
 import com.youlai.boot.system.service.RoleMenuService;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +39,7 @@ public class RoleMenuServiceImpl extends ServiceImpl<RoleMenuMapper, RoleMenu> i
         redisTemplate.delete(cacheKey);
 
         // 预热权限缓存，避免后续请求触发频繁回源
-        List<RolePermsBO> list = this.baseMapper.getRolePermsList(null);
+        List<RolePermsDTO> list = this.baseMapper.getRolePermsList(null);
         if (CollectionUtil.isNotEmpty(list)) {
             list.forEach(item -> {
                 String roleCode = item.getRoleCode();
@@ -64,9 +64,9 @@ public class RoleMenuServiceImpl extends ServiceImpl<RoleMenuMapper, RoleMenu> i
         redisTemplate.opsForHash().delete(cacheKey, roleCode);
 
         // 回源 DB 并更新缓存
-        List<RolePermsBO> list = this.baseMapper.getRolePermsList(roleCode);
+        List<RolePermsDTO> list = this.baseMapper.getRolePermsList(roleCode);
         if (CollectionUtil.isNotEmpty(list)) {
-            RolePermsBO rolePerms = list.get(0);
+            RolePermsDTO rolePerms = list.get(0);
             if (rolePerms != null) {
                 Set<String> perms = rolePerms.getPerms();
                 if (CollectionUtil.isNotEmpty(perms)) {
@@ -90,9 +90,9 @@ public class RoleMenuServiceImpl extends ServiceImpl<RoleMenuMapper, RoleMenu> i
         redisTemplate.opsForHash().delete(cacheKey, newRoleCode);
 
         // 回源 DB 并更新新角色编码缓存
-        List<RolePermsBO> list = this.baseMapper.getRolePermsList(newRoleCode);
+        List<RolePermsDTO> list = this.baseMapper.getRolePermsList(newRoleCode);
         if (CollectionUtil.isNotEmpty(list)) {
-            RolePermsBO rolePerms = list.get(0);
+            RolePermsDTO rolePerms = list.get(0);
             if (rolePerms != null) {
                 Set<String> perms = rolePerms.getPerms();
                 if (CollectionUtil.isNotEmpty(perms)) {
