@@ -18,7 +18,8 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException) {
-        ResponseWriter.writeError(response, ResultCode.ACCESS_UNAUTHORIZED);
+        // 权限不足返回 403 Forbidden
+        ResponseWriter.writeError(response, ResultCode.ACCESS_PERMISSION_EXCEPTION);
     }
 
 }

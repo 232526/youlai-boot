@@ -69,7 +69,7 @@ public final class ResponseWriter {
         Result<?> result = message == null
                 ? Result.failed(resultCode)
                 : Result.failed(resultCode, message);
-        
+
         int httpStatus = mapHttpStatus(resultCode);
         writeResult(response, result, httpStatus);
     }
@@ -85,11 +85,11 @@ public final class ResponseWriter {
         try {
             // 设置HTTP状态码
             response.setStatus(httpStatus);
-            
+
             // 设置响应编码和内容类型
             response.setCharacterEncoding(StandardCharsets.UTF_8.toString());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            
+
             // 写入响应
             JakartaServletUtil.write(response,
                     JSONUtil.toJsonStr(result),
@@ -103,6 +103,9 @@ public final class ResponseWriter {
 
     /**
      * 根据业务结果码映射HTTP状态码
+     * 401: 未认证（token无效/过期）
+     * 403: 权限不足
+     * 400: 其他业务错误
      *
      * @param resultCode 业务结果码
      * @return HTTP状态码
@@ -110,8 +113,9 @@ public final class ResponseWriter {
     private static int mapHttpStatus(ResultCode resultCode) {
         return switch (resultCode) {
             case ACCESS_UNAUTHORIZED,
-                    ACCESS_TOKEN_INVALID,
-                    REFRESH_TOKEN_INVALID -> HttpStatus.UNAUTHORIZED.value();
+                 ACCESS_TOKEN_INVALID,
+                 REFRESH_TOKEN_INVALID -> HttpStatus.UNAUTHORIZED.value();
+            case ACCESS_PERMISSION_EXCEPTION -> HttpStatus.FORBIDDEN.value();
             default -> HttpStatus.BAD_REQUEST.value();
         };
     }
