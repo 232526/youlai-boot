@@ -1,9 +1,10 @@
 package com.youlai.boot.security.token;
 
 import com.youlai.boot.config.property.SecurityProperties;
-import com.youlai.boot.security.model.AuthenticationToken;
-import com.youlai.boot.security.model.RoleDataScope;
-import com.youlai.boot.security.model.SysUserDetails;
+import com.youlai.boot.framework.security.model.AuthenticationToken;
+import com.youlai.boot.framework.security.model.RoleDataScope;
+import com.youlai.boot.framework.security.model.SysUserDetails;
+import com.youlai.boot.framework.security.token.JwtTokenManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
