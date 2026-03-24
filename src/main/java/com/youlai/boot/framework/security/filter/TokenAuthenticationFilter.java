@@ -67,23 +67,14 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * 从请求中解析 Token
-     * 优先从 Authorization Header 获取，其次从 URL 参数获取（支持 SSE）
+     * 从请求中解析 Token（仅支持 Authorization Header）
      */
     private String resolveToken(HttpServletRequest request) {
-        // 1. 从 Authorization Header 获取
         String authorizationHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (StrUtil.isNotBlank(authorizationHeader)
                 && authorizationHeader.startsWith(SecurityConstants.BEARER_TOKEN_PREFIX)) {
             return authorizationHeader.substring(SecurityConstants.BEARER_TOKEN_PREFIX.length());
         }
-
-        // 2. 从 URL 参数获取（支持 SSE EventSource）
-        String tokenParam = request.getParameter("token");
-        if (StrUtil.isNotBlank(tokenParam)) {
-            return tokenParam;
-        }
-
         return null;
     }
 }
