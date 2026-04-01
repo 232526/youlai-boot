@@ -23,9 +23,9 @@ public class LoginReq {
     @NotBlank(message = "密码不能为空")
     private String password;
 
-    @Schema(description = "验证码缓存ID", example = "captcha_id_123")
-    private String captchaId;
-
-    @Schema(description = "验证码", example = "123456")
-    private String captchaCode;
+//    @Schema(description = "验证码缓存ID", example = "captcha_id_123")
+//    private String captchaId;
+//
+//    @Schema(description = "验证码", example = "123456")
+//    private String captchaCode;
 }
