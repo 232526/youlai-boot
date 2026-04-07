@@ -12,9 +12,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Token 认证校验过滤器
@@ -29,8 +31,19 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
      */
     private final TokenManager tokenManager;
 
-    public TokenAuthenticationFilter(TokenManager tokenManager) {
+    /**
+     * 白名单路径（这些路径即使 Token 无效也不拦截）
+     */
+    private final String[] ignoreUrls;
+
+    /**
+     * 路径匹配器
+     */
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
+
+    public TokenAuthenticationFilter(TokenManager tokenManager, String[] ignoreUrls) {
         this.tokenManager = tokenManager;
+        this.ignoreUrls = ignoreUrls;
     }
 
     /**
@@ -47,6 +60,11 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
                 // 执行令牌有效性检查（包含密码学验签和过期时间验证）
                 boolean isValidToken = tokenManager.validateToken(rawToken);
                 if (!isValidToken) {
+                    // 白名单路径即使 Token 无效也不拦截，允许继续访问
+                    if (isIgnoreUrl(request)) {
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
                     ResponseWriter.writeError(response, ResultCode.ACCESS_TOKEN_INVALID);
                     return;
                 }
@@ -58,12 +76,29 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception ex) {
             // 安全上下文清除保障（防止上下文残留）
             SecurityContextHolder.clearContext();
+            // 白名单路径即使 Token 解析异常也不拦截，允许继续访问
+            if (isIgnoreUrl(request)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
             ResponseWriter.writeError(response, ResultCode.ACCESS_TOKEN_INVALID);
             return;
         }
 
         // 继续后续过滤器链执行
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 检查当前请求是否为白名单路径
+     */
+    private boolean isIgnoreUrl(HttpServletRequest request) {
+        if (ignoreUrls == null || ignoreUrls.length == 0) {
+            return false;
+        }
+        String requestUri = request.getRequestURI();
+        return Arrays.stream(ignoreUrls)
+                .anyMatch(pattern -> pathMatcher.match(pattern, requestUri));
     }
 
     /**

@@ -99,7 +99,7 @@ public class SecurityConfig {
                 // 验证码校验过滤器
 //                .addFilterBefore(new CaptchaValidationFilter(captchaService), UsernamePasswordAuthenticationFilter.class)
                 // 验证和解析过滤器
-                .addFilterBefore(new TokenAuthenticationFilter(tokenManager), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new TokenAuthenticationFilter(tokenManager, securityProperties.getIgnoreUrls()), UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
