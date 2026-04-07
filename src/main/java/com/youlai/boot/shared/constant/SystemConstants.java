@@ -23,6 +23,11 @@ public interface SystemConstants {
      */
     String ROOT_ROLE_CODE = "ROOT";
 
+    /**
+     * 管理员
+     */
+    String ADMIN_ROLE_CODE = "ADMIN";
+
 
     /**
      * 系统配置 IP的QPS限流的KEY

@@ -1,4 +1,4 @@
-package com.youlai.boot.common.base;
+package com.youlai.boot.market.order.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -10,24 +10,38 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 基础实体类
+ * 短信内容实体
  *
- * <p>实体类的基类，包含了实体类的公共属性，如创建时间、更新时间、逻辑删除标识等</p>
- *
- * @author Ray
- * @since 2024/6/23
+ * @author Ray.Hao
+ * @since 2026/04/07
  */
+@TableName("sms_content")
 @Data
-public class BaseEntity implements Serializable {
+public class SmsMessageContent implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     /**
-     * 主键ID
+     * 主键
      */
     @TableId(type = IdType.AUTO)
     private Long id;
+
+    /**
+     * 关联订单ID
+     */
+    private Long orderNo;
+
+    /**
+     * 短信内容
+     */
+    private String content;
+
+    /**
+     * 内容排序
+     */
+    private Integer contentSort;
 
     /**
      * 创建时间

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.youlai.boot.market.order.mapper.SmsPhoneRecordMapper">
+
+    <select id="getSmsPhoneRecordPage" resultType="com.youlai.boot.market.order.model.vo.SmsPhoneRecordPageVO">
+        SELECT
+            r.record_id,
+            r.order_no,
+            r.phone_number,
+            c.content,
+            r.send_status,
+            CASE r.send_status
+                WHEN 0 THEN '待发送'
+                WHEN 1 THEN '发送成功'
+                WHEN 2 THEN '发送失败'
+                ELSE '未知'
+            END AS send_status_desc,
+            r.send_time,
+            r.fail_reason,
+            r.create_time
+        FROM sms_phone_record r
+        LEFT JOIN sms_content c ON r.content_id = c.content_id
+        <where>
+            r.is_deleted = 0
+            <if test="queryParams.orderNo != null and queryParams.orderNo != ''">
+                AND r.order_no = #{queryParams.orderNo}
+            </if>
+            <if test="queryParams.phoneNumber != null and queryParams.phoneNumber != ''">
+                AND r.phone_number LIKE CONCAT('%', #{queryParams.phoneNumber}, '%')
+            </if>
+            <if test="queryParams.sendStatus != null">
+                AND r.send_status = #{queryParams.sendStatus}
+            </if>
+            <if test="queryParams.createTime != null and queryParams.createTime != ''">
+                AND DATE(r.create_time) = #{queryParams.createTime}
+            </if>
+            <if test="queryParams.content != null and queryParams.content != ''">
+                AND c.content LIKE CONCAT('%', #{queryParams.content}, '%')
+            </if>
+            <!-- 数据权限：非管理员只能查看自己的记录 -->
+            <if test="!isRoot">
+                AND r.create_by = #{currentUserId}
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+</mapper>

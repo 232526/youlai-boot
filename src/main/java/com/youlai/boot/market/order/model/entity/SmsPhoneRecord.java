@@ -1,4 +1,4 @@
-package com.youlai.boot.common.base;
+package com.youlai.boot.market.order.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -10,24 +10,53 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 基础实体类
+ * 手机号发送记录实体
  *
- * <p>实体类的基类，包含了实体类的公共属性，如创建时间、更新时间、逻辑删除标识等</p>
- *
- * @author Ray
- * @since 2024/6/23
+ * @author Ray.Hao
+ * @since 2026/04/07
  */
+@TableName("sms_phone_record")
 @Data
-public class BaseEntity implements Serializable {
+public class SmsPhoneRecord implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     /**
-     * 主键ID
+     * 记录ID（主键）
      */
-    @TableId(type = IdType.AUTO)
-    private Long id;
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long recordId;
+
+    /**
+     * 关联订单ID
+     */
+    private Long orderNo;
+
+    /**
+     * 关联短信内容ID（内容-号码多对多场景用，单内容可NULL）
+     */
+    private Long contentId;
+
+    /**
+     * 手机号（带/不带区号，按is_with_area_code规则）
+     */
+    private String phoneNumber;
+
+    /**
+     * 发送状态：0=待发送，1=发送成功，2=发送失败
+     */
+    private Integer sendStatus;
+
+    /**
+     * 实际发送时间
+     */
+    private LocalDateTime sendTime;
+
+    /**
+     * 失败原因（失败时记录）
+     */
+    private String failReason;
 
     /**
      * 创建时间

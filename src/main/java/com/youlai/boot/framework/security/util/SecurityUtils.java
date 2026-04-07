@@ -87,15 +87,15 @@ public class SecurityUtils {
      */
     public static Set<String> getRoles() {
         return Optional.ofNullable(SecurityContextHolder.getContext().getAuthentication())
-                .map(Authentication::getAuthorities)
-                .filter(CollectionUtil::isNotEmpty)
-                .stream()
-                .flatMap(Collection::stream)
-                .map(GrantedAuthority::getAuthority)
-                // 筛选角色,authorities 中的角色都是以 ROLE_ 开头
-                .filter(authority -> authority.startsWith(SecurityConstants.ROLE_PREFIX))
-                .map(authority -> StrUtil.removePrefix(authority, SecurityConstants.ROLE_PREFIX))
-                .collect(Collectors.toSet());
+            .map(Authentication::getAuthorities)
+            .filter(CollectionUtil::isNotEmpty)
+            .stream()
+            .flatMap(Collection::stream)
+            .map(GrantedAuthority::getAuthority)
+            // 筛选角色,authorities 中的角色都是以 ROLE_ 开头
+            .filter(authority -> authority.startsWith(SecurityConstants.ROLE_PREFIX))
+            .map(authority -> StrUtil.removePrefix(authority, SecurityConstants.ROLE_PREFIX))
+            .collect(Collectors.toSet());
     }
 
     /**
@@ -105,7 +105,7 @@ public class SecurityUtils {
      */
     public static boolean isRoot() {
         Set<String> roles = getRoles();
-        return roles.contains(SystemConstants.ROOT_ROLE_CODE);
+        return roles.contains(SystemConstants.ROOT_ROLE_CODE) || roles.contains(SystemConstants.ADMIN_ROLE_CODE);
     }
 
     /**
@@ -115,7 +115,7 @@ public class SecurityUtils {
      */
     public static String getAccessToken() {
         ServletRequestAttributes servletRequestAttributes = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes());
-        if(Objects.isNull(servletRequestAttributes)) {
+        if (Objects.isNull(servletRequestAttributes)) {
             return null;
         }
         HttpServletRequest request = servletRequestAttributes.getRequest();
