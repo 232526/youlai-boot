@@ -159,6 +159,7 @@ springdoc:
         - com.youlai.boot.module.file.controller
         - com.youlai.boot.module.codegen.controller
         - com.youlai.boot.market.order.controller
+        - com.youlai.boot.share.controller
   default-flat-param-object: true # 将对象参数扁平化显示在文档中
 
 # knife4j 配置
