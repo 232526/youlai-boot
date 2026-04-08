@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.youlai.boot.share.mapper.ShareOrderMapper">
+
+    <select id="getShareOrderPage" resultType="com.youlai.boot.share.model.vo.ShareOrderPageVO">
+        SELECT
+            id,
+            order_no,
+            country_name,
+            share_id,
+            has_area_code,
+            scheduled_time,
+            status,
+            CASE status
+                WHEN 0 THEN '待发送'
+                WHEN 1 THEN '发送中'
+                WHEN 2 THEN '已完成'
+                WHEN 3 THEN '发送失败'
+                WHEN 4 THEN '已取消'
+                ELSE '未知'
+            END AS status_desc,
+            success_count,
+            fail_count,
+            total_count,
+            report_count,
+            paid_count,
+            cancel_count,
+            create_time
+        FROM share_order
+        <where>
+            <if test="queryParams.orderNo != null and queryParams.orderNo != ''">
+                AND order_no LIKE CONCAT('%', #{queryParams.orderNo}, '%')
+            </if>
+            <if test="queryParams.countryId != null">
+                AND country_id = #{queryParams.countryId}
+            </if>
+            <if test="queryParams.shareId != null">
+                AND share_id = #{queryParams.shareId}
+            </if>
+            <if test="queryParams.status != null">
+                AND status = #{queryParams.status}
+            </if>
+            <!-- 数据权限：非管理员只能查看自己的订单 -->
+            <if test="!isRoot">
+                AND create_by = #{currentUserId}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>
