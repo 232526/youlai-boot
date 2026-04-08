@@ -64,6 +64,19 @@ public class SmsOrder extends BaseEntity {
     private Integer totalCount;
 
     /**
+     * 上报短信数量
+     */
+    private Integer reportCount;
+    /**
+     * 付费短信数量
+     */
+    private Integer paidCount;
+    /**
+     * 取消短信数量
+     */
+    private Integer cancelCount;
+
+    /**
      * 备注
      */
     private String remark;

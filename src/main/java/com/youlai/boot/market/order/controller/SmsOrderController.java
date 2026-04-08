@@ -8,9 +8,11 @@ import com.youlai.boot.common.result.PageResult;
 import com.youlai.boot.common.result.Result;
 import com.youlai.boot.market.order.model.form.SmsOrderForm;
 import com.youlai.boot.market.order.model.query.SmsOrderQuery;
+import com.youlai.boot.market.order.model.query.SmsOrderStatisticsQuery;
 import com.youlai.boot.market.order.model.query.SmsPhoneRecordQuery;
 import com.youlai.boot.market.order.model.vo.SmsOrderDetailVO;
 import com.youlai.boot.market.order.model.vo.SmsOrderPageVO;
+import com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO;
 import com.youlai.boot.market.order.model.vo.SmsPhoneRecordPageVO;
 import com.youlai.boot.market.order.service.SmsOrderService;
 import com.youlai.boot.market.order.service.SmsPhoneRecordService;
@@ -76,6 +78,14 @@ public class SmsOrderController {
     @Log(module = LogModuleEnum.ORDER, value = ActionTypeEnum.LIST)
     public PageResult<SmsPhoneRecordPageVO> getSmsPhoneRecordPage(SmsPhoneRecordQuery queryParams) {
         Page<SmsPhoneRecordPageVO> result = smsPhoneRecordService.getSmsPhoneRecordPage(queryParams);
+        return PageResult.success(result);
+    }
+
+    @Operation(summary = "短信订单统计分页列表")
+    @GetMapping("/statistics")
+    @Log(module = LogModuleEnum.ORDER, value = ActionTypeEnum.LIST)
+    public PageResult<SmsOrderStatisticsVO> getSmsOrderStatisticsPage(SmsOrderStatisticsQuery queryParams) {
+        Page<SmsOrderStatisticsVO> result = smsOrderService.getSmsOrderStatisticsPage(queryParams);
         return PageResult.success(result);
     }
 

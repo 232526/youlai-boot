@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.youlai.boot.market.order.model.entity.SmsOrder;
 import com.youlai.boot.market.order.model.form.SmsOrderForm;
 import com.youlai.boot.market.order.model.query.SmsOrderQuery;
+import com.youlai.boot.market.order.model.query.SmsOrderStatisticsQuery;
 import com.youlai.boot.market.order.model.vo.SmsOrderDetailVO;
 import com.youlai.boot.market.order.model.vo.SmsOrderPageVO;
+import com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO;
 
 /**
  * 短信订单业务接口
@@ -47,5 +49,13 @@ public interface SmsOrderService extends IService<SmsOrder> {
      * @return 是否成功
      */
     boolean cancelOrder(Long id);
+
+    /**
+     * 获取短信订单统计分页列表
+     *
+     * @param queryParams 查询参数
+     * @return 短信订单统计分页列表
+     */
+    Page<SmsOrderStatisticsVO> getSmsOrderStatisticsPage(SmsOrderStatisticsQuery queryParams);
 
 }

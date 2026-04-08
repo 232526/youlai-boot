@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.youlai.boot.market.template.mapper.SmsTempleMapper">
+
+    <select id="getSmsTemplePage" resultType="com.youlai.boot.market.template.model.vo.SmsTemplePageVO">
+        SELECT
+            template_id,
+            countries_id,
+            content,
+            content_sort,
+            create_time,
+            create_by,
+            update_time,
+            update_by
+        FROM sms_template
+        <where>
+            <if test="queryParams.countriesId != null">
+                AND countries_id = #{queryParams.countriesId}
+            </if>
+            <if test="queryParams.content != null and queryParams.content != ''">
+                AND content LIKE CONCAT('%', #{queryParams.content}, '%')
+            </if>
+            <!-- 数据权限：非管理员只能查看自己的模板 -->
+            <if test="!isRoot">
+                AND create_by = #{currentUserId}
+            </if>
+        </where>
+        ORDER BY content_sort ASC, create_time DESC
+    </select>
+
+</mapper>

@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.youlai.boot.market.order.model.entity.SmsOrder;
 import com.youlai.boot.market.order.model.query.SmsOrderQuery;
+import com.youlai.boot.market.order.model.query.SmsOrderStatisticsQuery;
 import com.youlai.boot.market.order.model.vo.SmsOrderPageVO;
+import com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -26,5 +28,16 @@ public interface SmsOrderMapper extends BaseMapper<SmsOrder> {
      * @return 短信订单分页列表
      */
     Page<SmsOrderPageVO> getSmsOrderPage(Page<SmsOrderPageVO> page, SmsOrderQuery queryParams, Long currentUserId, boolean isRoot);
+
+    /**
+     * 短信订单统计分页列表
+     *
+     * @param page 分页参数
+     * @param queryParams 查询参数
+     * @param currentUserId 当前用户ID
+     * @param isRoot 是否管理员
+     * @return 短信订单统计分页列表
+     */
+    Page<SmsOrderStatisticsVO> getSmsOrderStatisticsPage(Page<SmsOrderStatisticsVO> page, SmsOrderStatisticsQuery queryParams, Long currentUserId, boolean isRoot);
 
 }

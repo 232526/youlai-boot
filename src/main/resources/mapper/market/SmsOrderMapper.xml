@@ -41,4 +41,47 @@
         ORDER BY create_time DESC
     </select>
 
+    <select id="getSmsOrderStatisticsPage" resultType="com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO">
+        SELECT
+            id,
+            create_by AS userId,
+            total_count AS totalCount,
+            success_count AS successCount,
+            report_count AS reportCount,
+            paid_count AS paidCount,
+            fail_count AS failCount,
+            cancel_count AS cancelCount,
+            create_time,
+            update_time,
+            status,
+            CASE status
+                WHEN 0 THEN '待发送'
+                WHEN 1 THEN '发送中'
+                WHEN 2 THEN '已完成'
+                WHEN 3 THEN '发送失败'
+                WHEN 4 THEN '已取消'
+                ELSE '未知'
+            END AS statusDesc
+        FROM sms_order
+        <where>
+            <if test="queryParams.orderId != null">
+                AND id = #{queryParams.orderId}
+            </if>
+            <if test="queryParams.countryId != null">
+                AND country_id = #{queryParams.countryId}
+            </if>
+            <if test="queryParams.startTime != null and queryParams.startTime != ''">
+                AND create_time &gt;= #{queryParams.startTime}
+            </if>
+            <if test="queryParams.endTime != null and queryParams.endTime != ''">
+                AND create_time &lt;= #{queryParams.endTime}
+            </if>
+            <!-- 数据权限：非管理员只能查看自己的订单 -->
+            <if test="!isRoot">
+                AND create_by = #{currentUserId}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
 </mapper>

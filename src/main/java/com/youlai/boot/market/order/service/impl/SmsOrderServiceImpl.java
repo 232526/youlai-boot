@@ -14,8 +14,10 @@ import com.youlai.boot.market.order.model.entity.SmsOrder;
 import com.youlai.boot.market.order.model.entity.SmsPhoneRecord;
 import com.youlai.boot.market.order.model.form.SmsOrderForm;
 import com.youlai.boot.market.order.model.query.SmsOrderQuery;
+import com.youlai.boot.market.order.model.query.SmsOrderStatisticsQuery;
 import com.youlai.boot.market.order.model.vo.SmsOrderDetailVO;
 import com.youlai.boot.market.order.model.vo.SmsOrderPageVO;
+import com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO;
 import com.youlai.boot.market.order.service.SmsOrderService;
 import com.youlai.boot.system.mapper.CountryMapper;
 import com.youlai.boot.system.model.entity.Country;
@@ -50,6 +52,16 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         
         Page<SmsOrderPageVO> page = new Page<>(queryParams.getPageNum(), queryParams.getPageSize());
         return smsOrderMapper.getSmsOrderPage(page, queryParams, currentUserId, isRoot);
+    }
+
+    @Override
+    public Page<SmsOrderStatisticsVO> getSmsOrderStatisticsPage(SmsOrderStatisticsQuery queryParams) {
+        // 数据权限：非管理员只能查看自己的订单
+        Long currentUserId = SecurityUtils.getUserId();
+        boolean isRoot = SecurityUtils.isRoot();
+        
+        Page<SmsOrderStatisticsVO> page = new Page<>(queryParams.getPageNum(), queryParams.getPageSize());
+        return smsOrderMapper.getSmsOrderStatisticsPage(page, queryParams, currentUserId, isRoot);
     }
 
     @Override
