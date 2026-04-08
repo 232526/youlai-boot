@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
  * @author Ray.Hao
  * @since 2026/04/07
  */
-@Tag(name = "短信订单接口")
+@Tag(name = "12.短信订单接口")
 @RestController
 @RequestMapping("/api/v1/sms-orders")
 @RequiredArgsConstructor
