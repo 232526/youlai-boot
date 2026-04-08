@@ -4,32 +4,42 @@
 
     <select id="getSmsPhoneRecordPage" resultType="com.youlai.boot.market.order.model.vo.SmsPhoneRecordPageVO">
         SELECT
-            r.record_id,
-            r.order_no,
-            r.phone_number,
-            c.content,
-            r.send_status,
-            CASE r.send_status
-                WHEN 0 THEN '待发送'
-                WHEN 1 THEN '发送成功'
-                WHEN 2 THEN '发送失败'
-                ELSE '未知'
-            END AS send_status_desc,
-            r.send_time,
-            r.fail_reason,
-            r.create_time
+        r.record_id,
+        r.order_no,
+        r.phone_number,
+        c.content,
+        r.send_status,
+        CASE r.send_status
+        WHEN 0 THEN '待发送'
+        WHEN 1 THEN '发送成功'
+        WHEN 2 THEN '发送失败'
+        ELSE '未知'
+        END AS send_status_desc,
+        r.send_time,
+        r.fail_reason,
+        r.create_time
         FROM sms_phone_record r
         LEFT JOIN sms_content c ON r.content_id = c.content_id
+        LEFT JOIN sms_order o ON r.order_no = o.order_no
         <where>
             r.is_deleted = 0
             <if test="queryParams.orderNo != null and queryParams.orderNo != ''">
                 AND r.order_no = #{queryParams.orderNo}
             </if>
-            <if test="queryParams.phoneNumber != null and queryParams.phoneNumber != ''">
-                AND r.phone_number LIKE CONCAT('%', #{queryParams.phoneNumber}, '%')
+            <if test="queryParams.countryId != null">
+                AND o.country_id = #{queryParams.countryId}
+            </if>
+            <if test="queryParams.phone != null and queryParams.phone != ''">
+                AND r.phone_number LIKE CONCAT('%', #{queryParams.phone}, '%')
             </if>
             <if test="queryParams.sendStatus != null">
                 AND r.send_status = #{queryParams.sendStatus}
+            </if>
+            <if test="queryParams.startDate != null and queryParams.startDate != ''">
+                AND r.create_time &gt;= #{queryParams.startDate}
+            </if>
+            <if test="queryParams.endDate != null and queryParams.endDate != ''">
+                AND r.create_time &lt;= #{queryParams.endDate}
             </if>
             <if test="queryParams.createTime != null and queryParams.createTime != ''">
                 AND DATE(r.create_time) = #{queryParams.createTime}
