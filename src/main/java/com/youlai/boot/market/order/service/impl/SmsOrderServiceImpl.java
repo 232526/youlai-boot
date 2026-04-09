@@ -191,6 +191,32 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         return this.updateById(order);
     }
 
+    @Override
+    public List<SmsOrder> getPendingOrdersToExecute() {
+        // 查询状态为待发送且预约时间小于等于当前时间的订单
+        LambdaQueryWrapper<SmsOrder> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SmsOrder::getStatus, OrderStatusEnum.PENDING.getValue())
+                .le(SmsOrder::getScheduledTime, LocalDateTime.now())
+                .orderByAsc(SmsOrder::getScheduledTime);
+        return this.list(wrapper);
+    }
+
+    @Override
+    public List<SmsPhoneRecord> getPhoneRecordsByOrderId(Long orderId) {
+        LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SmsPhoneRecord::getOrderNo, orderId)
+                .orderByAsc(SmsPhoneRecord::getCreateTime);
+        return smsPhoneRecordMapper.selectList(wrapper);
+    }
+
+    @Override
+    public List<SmsMessageContent> getMessageContentsByOrderId(Long orderId) {
+        LambdaQueryWrapper<SmsMessageContent> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SmsMessageContent::getOrderNo, orderId)
+                .orderByAsc(SmsMessageContent::getContentSort);
+        return smsMessageContentMapper.selectList(wrapper);
+    }
+
     /**
      * 生成订单编号
      */

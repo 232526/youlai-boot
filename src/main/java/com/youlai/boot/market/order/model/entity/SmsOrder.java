@@ -44,6 +44,11 @@ public class SmsOrder extends BaseEntity {
     private LocalDateTime scheduledTime;
 
     /**
+     * 短信渠道：ONBUKA-Onbuka短信，ALIYUN-阿里云短信，TENCENT-腾讯云短信
+     */
+    private String channel;
+
+    /**
      * 订单状态：0-待发送，1-发送中，2-已完成，3-发送失败，4-已取消
      */
     private Integer status;

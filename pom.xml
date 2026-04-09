@@ -283,6 +283,14 @@
             <version>${dynamic-datasource.version}</version>
         </dependency>-->
 
+        <!-- 外部jar：buka-java-sdk -->
+        <dependency>
+            <groupId>com.buka</groupId>
+            <artifactId>buka-java-sdk</artifactId>
+            <version>1.0.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/lib/buka-java-sdk-1.0.0.jar</systemPath>
+        </dependency>
     </dependencies>
 
     <build>
@@ -291,6 +299,10 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- 允许打包system scope的外部jar -->
+                    <includeSystemScope>true</includeSystemScope>
+                </configuration>
             </plugin>
         </plugins>
     </build>

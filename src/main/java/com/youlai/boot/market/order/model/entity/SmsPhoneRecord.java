@@ -7,6 +7,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -44,6 +45,16 @@ public class SmsPhoneRecord implements Serializable {
     private String phoneNumber;
 
     /**
+     * 短信消息ID
+     */
+    private String msgId;
+
+    /**
+     * 发送的第三方渠道
+     */
+    private String channel;
+
+    /**
      * 发送状态：0=待发送，1=发送成功，2=发送失败
      */
     private Integer sendStatus;
@@ -54,9 +65,59 @@ public class SmsPhoneRecord implements Serializable {
     private LocalDateTime sendTime;
 
     /**
+     * 状态报告接收时间
+     */
+    private LocalDateTime receiveTime;
+
+    /**
      * 失败原因（失败时记录）
      */
     private String failReason;
+
+    /**
+     * 总费用
+     */
+    private BigDecimal payAmount;
+
+    /**
+     * 报价币种（如USD、EUR）
+     */
+    private String currency;
+
+    /**
+     * 计费条数
+     */
+    private Integer chargeCount;
+
+    /**
+     * 报价单价
+     */
+    private BigDecimal unitPrice;
+
+    /**
+     * 报价汇率（报价币种非USD时返回）
+     */
+    private BigDecimal quoteExchange;
+
+    /**
+     * 结算币种总费用（报价币种非USD时返回）
+     */
+    private BigDecimal settlePay;
+
+    /**
+     * 结算币种（报价币种非USD时返回）
+     */
+    private String settleCurrency;
+
+    /**
+     * 结算币种单价（报价币种非USD时返回）
+     */
+    private BigDecimal settleUnitPrice;
+
+    /**
+     * 我方支付总费用
+     */
+    private BigDecimal mePayAmount;
 
     /**
      * 创建时间
