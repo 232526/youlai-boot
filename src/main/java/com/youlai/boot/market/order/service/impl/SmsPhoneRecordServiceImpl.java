@@ -1,6 +1,7 @@
 package com.youlai.boot.market.order.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -11,17 +12,22 @@ import com.youlai.boot.market.order.enums.OrderStatusEnum;
 import com.youlai.boot.market.order.mapper.SmsPhoneRecordMapper;
 import com.youlai.boot.market.order.model.entity.SmsOrder;
 import com.youlai.boot.market.order.model.entity.SmsPhoneRecord;
+import com.youlai.boot.market.order.model.entity.UserTransaction;
 import com.youlai.boot.market.order.model.query.SmsPhoneRecordQuery;
 import com.youlai.boot.market.order.model.vo.SmsPhoneRecordPageVO;
 import com.youlai.boot.market.order.service.SmsOrderService;
 import com.youlai.boot.market.order.service.SmsPhoneRecordService;
+import com.youlai.boot.market.order.service.UserTransactionService;
 import com.youlai.boot.market.order.strategy.SmsChannelContext;
 import com.youlai.boot.market.order.strategy.SmsChannelStrategy;
+import com.youlai.boot.system.mapper.UserMapper;
+import com.youlai.boot.system.model.entity.SysUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -42,6 +48,8 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     private final SmsPhoneRecordMapper smsPhoneRecordMapper;
     private final SmsOrderService smsOrderService;
     private final SmsChannelContext smsChannelContext;
+    private final UserTransactionService userTransactionService;
+    private final UserMapper userMapper;
 
     @Override
     public Page<SmsPhoneRecordPageVO> getSmsPhoneRecordPage(SmsPhoneRecordQuery queryParams) {
@@ -265,6 +273,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
      * @param orderNo 订单编号
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void checkAndUpdateOrderStatus(Long orderNo) {
         // 查询订单下所有记录的状态
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
@@ -288,13 +297,105 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         if (pendingCount == 0) {
             SmsOrder order = smsOrderService.getById(orderNo);
             if (order != null) {
+                Integer oldStatus = order.getStatus();
                 order.setStatus(OrderStatusEnum.COMPLETED.getValue());
                 order.setSuccessCount((int) successCount);
                 order.setFailCount((int) failCount);
                 smsOrderService.updateById(order);
 
                 log.info("订单 {} 所有短信发送完成，成功: {}, 失败: {}", orderNo, successCount, failCount);
+
+                // 如果订单从非完成状态变为完成状态，生成流水记录
+                if (!OrderStatusEnum.COMPLETED.getValue().equals(oldStatus)) {
+                    createTransactionRecord(order, allRecords);
+                }
             }
+        }
+    }
+
+    /**
+     * 创建交易流水记录
+     *
+     * @param order 订单信息
+     * @param phoneRecords 手机号发送记录列表
+     */
+    private void createTransactionRecord(SmsOrder order, List<SmsPhoneRecord> phoneRecords) {
+        try {
+            // 计算总支出金额（只统计成功的记录）
+            BigDecimal totalAmount = phoneRecords.stream()
+                .filter(record -> record.getSendStatus() != null && record.getSendStatus() == 2) // 只统计发送成功的
+                .map(record -> record.getMePayAmount() != null ? record.getMePayAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // 如果没有支出，不生成流水
+            if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                log.debug("订单 {} 没有产生费用，不生成流水记录", order.getOrderNo());
+                return;
+            }
+
+            // 获取用户ID（订单的创建人）
+            Long userId = order.getCreateBy();
+            if (userId == null) {
+                log.warn("订单 {} 没有创建人信息，无法生成流水记录", order.getOrderNo());
+                return;
+            }
+
+            // 查询用户当前余额
+            SysUser user = userMapper.selectById(userId);
+            if (user == null) {
+                log.warn("订单 {} 对应的用户不存在，userId: {}", order.getOrderNo(), userId);
+                return;
+            }
+
+            // 获取当前余额（Double类型）
+            Double currentBalance = user.getPrice() != null ? user.getPrice() : 0.0;
+            
+            // 将BigDecimal转换为Double进行计算
+            double amountDouble = totalAmount.doubleValue();
+            
+            // 检查余额是否充足
+            if (currentBalance < amountDouble) {
+                log.warn("订单 {} 用户余额不足，当前余额: {}, 需要扣除: {}", 
+                    order.getOrderNo(), currentBalance, amountDouble);
+                // 这里可以选择抛出异常或者允许负余额，根据业务需求决定
+                // throw new BusinessException("用户余额不足");
+            }
+
+            // 计算新余额
+            double newBalance = currentBalance - amountDouble;
+
+            // 更新用户余额
+            SysUser updateUser = new SysUser();
+            updateUser.setId(userId);
+            updateUser.setPrice(newBalance);
+            userMapper.updateById(updateUser);
+
+            log.info("用户 {} 余额更新成功，原余额: {}, 扣除: {}, 新余额: {}", 
+                userId, currentBalance, amountDouble, newBalance);
+
+            // 生成流水号：TXN + 时间戳 + 随机6位
+            String transNo = "TXN" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) 
+                + IdUtil.fastSimpleUUID().substring(0, 6).toUpperCase();
+
+            // 创建流水记录
+            UserTransaction transaction = new UserTransaction();
+            transaction.setUserId(userId);
+            transaction.setTransNo(transNo);
+            transaction.setTransType(2); // 2=支出
+            transaction.setBizType("营销短信发送");
+            transaction.setAmount(totalAmount);
+            transaction.setBalance(BigDecimal.valueOf(newBalance)); // 使用扣减后的新余额
+            transaction.setRelatedOrderNo(order.getOrderNo());
+            transaction.setStatus(1); // 1=成功
+            transaction.setRemark(String.format("订单%s短信发送费用，成功%d条，失败%d条",
+                order.getOrderNo(), order.getSuccessCount(), order.getFailCount()));
+
+            userTransactionService.save(transaction);
+            log.info("生成流水记录成功，流水号: {}, 订单号: {}, 金额: {}, 余额: {}", 
+                transNo, order.getOrderNo(), totalAmount, newBalance);
+        } catch (Exception e) {
+            log.error("生成流水记录失败，订单号: {}", order.getOrderNo(), e);
+            // 不抛出异常，避免影响订单状态更新
         }
     }
 

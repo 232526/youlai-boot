@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.youlai.boot.market.order.mapper.UserTransactionMapper">
+
+    <select id="getUserTransactionPage" resultType="com.youlai.boot.market.order.model.vo.UserTransactionPageVO">
+        SELECT
+            id,
+            trans_no,
+            trans_type,
+            CASE trans_type
+                WHEN 1 THEN '收入'
+                WHEN 2 THEN '支出'
+                ELSE '未知'
+            END AS trans_type_desc,
+            biz_type,
+            amount,
+            balance,
+            related_order_no,
+            status,
+            CASE status
+                WHEN 0 THEN '作废'
+                WHEN 1 THEN '成功'
+                WHEN 2 THEN '处理中'
+                ELSE '未知'
+            END AS status_desc,
+            remark,
+            create_time
+        FROM user_transaction
+        <where>
+            <if test="queryParams.transNo != null and queryParams.transNo != ''">
+                AND trans_no = #{queryParams.transNo}
+            </if>
+            <if test="queryParams.transType != null">
+                AND trans_type = #{queryParams.transType}
+            </if>
+            <if test="queryParams.bizType != null and queryParams.bizType != ''">
+                AND biz_type LIKE CONCAT('%', #{queryParams.bizType}, '%')
+            </if>
+            <if test="queryParams.relatedOrderNo != null and queryParams.relatedOrderNo != ''">
+                AND related_order_no = #{queryParams.relatedOrderNo}
+            </if>
+            <if test="queryParams.status != null">
+                AND status = #{queryParams.status}
+            </if>
+            <if test="queryParams.startDate != null and queryParams.startDate != ''">
+                AND create_time &gt;= #{queryParams.startDate}
+            </if>
+            <if test="queryParams.endDate != null and queryParams.endDate != ''">
+                AND create_time &lt;= #{queryParams.endDate}
+            </if>
+            <!-- 数据权限：非管理员只能查看自己的记录 -->
+            <if test="!isRoot">
+                AND user_id = #{currentUserId}
+            </if>
+            <!-- 管理员可以按用户ID列表查询（通过用户名搜索后得到） -->
+            <if test="isRoot and queryParams.userIds != null and queryParams.userIds.size() > 0">
+                AND user_id IN
+                <foreach collection="queryParams.userIds" item="userId" open="(" separator="," close=")">
+                    #{userId}
+                </foreach>
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+</mapper>
