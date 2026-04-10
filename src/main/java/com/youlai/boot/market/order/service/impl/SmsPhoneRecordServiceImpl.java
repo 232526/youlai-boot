@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.youlai.boot.framework.security.util.SecurityUtils;
 import com.youlai.boot.market.order.enums.OrderStatusEnum;
 import com.youlai.boot.market.order.mapper.SmsPhoneRecordMapper;
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
+public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper, SmsPhoneRecord> implements SmsPhoneRecordService {
 
     private final SmsPhoneRecordMapper smsPhoneRecordMapper;
     private final SmsOrderService smsOrderService;
@@ -79,7 +80,7 @@ public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
             SmsPhoneRecord record = records.get(i);
             record.setMsgId(msgIds.get(i));
             record.setChannel(channelCode);
-            record.setSendStatus(1); // 发送成功
+            record.setSendStatus(1); // 发送中（等待状态报告）
             record.setSendTime(LocalDateTime.now());
         }
 
@@ -101,7 +102,7 @@ public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
         List<SmsChannelStrategy.SmsReportResult.SmsStatus> statusList = reportResult.statusList();
         int updateCount = 0;
 
-        for ( SmsChannelStrategy.SmsReportResult.SmsStatus status : statusList) {
+        for (SmsChannelStrategy.SmsReportResult.SmsStatus status : statusList) {
             if (StrUtil.isBlank(status.msgId())) {
                 continue;
             }
@@ -159,7 +160,7 @@ public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
             .isNotNull(SmsPhoneRecord::getMsgId)
-            .eq(SmsPhoneRecord::getSendStatus, 1); // 已发送
+            .eq(SmsPhoneRecord::getSendStatus, 1); // 发送中（等待状态报告）
 
         List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(wrapper);
 
@@ -242,8 +243,8 @@ public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
     /**
      * 转换状态码为发送状态
      *
-     * @param statusCode 状态码
-     * @return 发送状态：0=待发送，1=发送成功，2=发送失败
+     * @param statusCode 状态码（Onbuka平台返回：0=送达，-1=发送中，1=发送失败）
+     * @return 发送状态：0=未发送，1=发送中，2=发送成功，-1=发送失败
      */
     private Integer convertToSendStatus(Integer statusCode) {
         if (statusCode == null) {
@@ -251,9 +252,9 @@ public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
         }
 
         return switch (statusCode) {
-            case 0 -> 1; // 送达 -> 发送成功
-            case -1 -> 1; // 发送中 -> 发送成功（临时状态）
-            case 1 -> 2; // 发送失败
+            case 0 -> 2;   // Onbuka送达(0) -> 发送成功(2)
+            case -1 -> 1;  // Onbuka发送中(-1) -> 发送中(1)
+            case 1 -> -1;  // Onbuka发送失败(1) -> 发送失败(-1)
             default -> null;
         };
     }
@@ -316,7 +317,7 @@ public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
         // 批量更新为发送失败状态
         for (SmsPhoneRecord record : records) {
             record.setChannel(channelCode); // 设置渠道代码
-            record.setSendStatus(2); // 发送失败
+            record.setSendStatus(-1); // 发送失败
             record.setFailReason(failReason);
             record.setSendTime(now);
         }

@@ -11,8 +11,9 @@
         r.send_status,
         CASE r.send_status
         WHEN 0 THEN '待发送'
-        WHEN 1 THEN '发送成功'
-        WHEN 2 THEN '发送失败'
+        WHEN 1 THEN '发送中'
+        WHEN 2 THEN '发送成功'
+        WHEN -1 THEN '发送失败'
         ELSE '未知'
         END AS send_status_desc,
         r.send_time,

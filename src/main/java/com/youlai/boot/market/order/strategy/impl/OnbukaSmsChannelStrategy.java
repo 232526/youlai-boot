@@ -102,21 +102,39 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
     @Override
     public SmsReportResult queryReport(List<String> msgIds) {
         try {
-            ApiData apiData = new ApiData(APP_KEY, APP_SECRET, API_URL);
-            SmsSdkClient smsSdkClient = SmsSdkClient.getInstance(apiData);
+            // 多个msgId用英文逗号分隔，单次查询最大200个msgId
+            String msgIdsStr = String.join(",", msgIds);
+            
+            // 构造URL: https://api.onbuka.com/v3/getReport?appId={}&msgIds={}
+            String url = API_URL + "/getReport";
+            String queryString = "?appId=" + APP_ID + "&msgIds=" + msgIdsStr;
+            
+            HttpRequest request = HttpRequest.get(url + queryString);
 
-            ReportDTO reportDTO = new ReportDTO();
-            reportDTO.setAppId(APP_ID);
-            // 多个msgId用英文逗号分隔
-            reportDTO.setMsgIds(String.join(",", msgIds));
+            //generate md5 key
+            String datetime = String.valueOf(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().getEpochSecond());
+            String sign = SecureUtil.md5(APP_KEY.concat(APP_SECRET).concat(datetime));
 
-            String reportResult = smsSdkClient.getReport(reportDTO);
-            log.info("Onbuka短信状态报告: {}", reportResult);
+            request.header(Header.CONNECTION, "Keep-Alive")
+                .header(Header.CONTENT_TYPE, "application/json;charset=UTF-8")
+                .header("Sign", sign)
+                .header("Timestamp", datetime)
+                .header("Api-Key", APP_KEY);
 
-            // 这里需要根据实际的返回格式进行解析
-            List<SmsReportResult.SmsStatus> statusList = parseReportResult(reportResult);
+            HttpResponse response = request.execute();
+            if (response.isOk()) {
+                String reportResult = response.body();
+                log.info("Onbuka短信状态报告: {}", reportResult);
 
-            return new SmsReportResult(true, "查询成功", statusList);
+                // 这里需要根据实际的返回格式进行解析
+                List<SmsReportResult.SmsStatus> statusList = parseReportResult(reportResult);
+
+                return new SmsReportResult(true, "查询成功", statusList);
+            } else {
+                String errorMsg = "HTTP请求失败: " + response.getStatus();
+                log.error("Onbuka短信状态报告查询HTTP请求失败: {}", errorMsg);
+                return new SmsReportResult(false, errorMsg, null);
+            }
 
         } catch (Exception e) {
             log.error("Onbuka短信状态报告查询失败", e);

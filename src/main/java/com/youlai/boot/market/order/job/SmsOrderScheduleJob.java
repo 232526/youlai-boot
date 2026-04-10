@@ -9,6 +9,7 @@ import com.youlai.boot.market.order.service.SmsOrderService;
 import com.youlai.boot.market.order.service.SmsPhoneRecordService;
 import com.youlai.boot.market.order.strategy.SmsChannelContext;
 import com.youlai.boot.market.order.strategy.SmsChannelStrategy;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -76,8 +77,7 @@ public class SmsOrderScheduleJob {
      * @param order 订单实体
      */
     private void processOrder(SmsOrder order) {
-        log.info("开始处理订单，订单ID: {}, 订单编号: {}, 预约时间: {}, 渠道: {}",
-            order.getId(), order.getOrderNo(), order.getScheduledTime(), order.getChannel());
+        log.info("开始处理订单，订单ID: {}, 订单编号: {}, 预约时间: {}, 渠道: {}", order.getId(), order.getOrderNo(), order.getScheduledTime(), order.getChannel());
 
         // 1. 获取订单关联的手机号和短信内容
         List<SmsPhoneRecord> phoneRecords = smsOrderService.getPhoneRecordsByOrderId(order.getId());
@@ -89,10 +89,7 @@ public class SmsOrderScheduleJob {
         }
 
         // 2. 提取手机号列表（去重）
-        List<String> phoneNumbers = phoneRecords.stream()
-            .map(SmsPhoneRecord::getPhoneNumber)
-            .distinct()
-            .collect(Collectors.toList());
+        List<String> phoneNumbers = phoneRecords.stream().map(SmsPhoneRecord::getPhoneNumber).distinct().collect(Collectors.toList());
 
         // 3. 获取短信内容（取第一条内容，或者根据业务逻辑合并多条内容）
         String content = messageContents.get(0).getContent();
@@ -138,40 +135,69 @@ public class SmsOrderScheduleJob {
 
     /**
      * 定时查询并更新短信状态报告
-     * <p>
-     * 每5分钟执行一次，查询发送中的订单的状态报告
      */
-    @Scheduled(cron = "0 */5 * * * ?")
+    @PostConstruct
+    @Scheduled(fixedDelay = 120000)
     public void queryAndUpdateReports() {
         log.debug("开始执行状态报告查询任务...");
 
         try {
-            // 查询所有发送中的订单
-            LambdaQueryWrapper<SmsOrder> wrapper =
-                new LambdaQueryWrapper<>();
-            wrapper.eq(SmsOrder::getStatus, OrderStatusEnum.SENDING.getValue());
+            // 查询 sms_phone_record 表中所有发送中的记录（sendStatus = -1）
+            LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(SmsPhoneRecord::getSendStatus, 1)  // 发送中状态
+                .isNotNull(SmsPhoneRecord::getMsgId);       // 必须有msgId才能查询
 
-            List<SmsOrder> sendingOrders = smsOrderService.list(wrapper);
+            List<SmsPhoneRecord> sendingRecords = smsPhoneRecordService.list(wrapper);
 
-            if (sendingOrders == null || sendingOrders.isEmpty()) {
-                log.debug("当前没有发送中的订单");
+            if (sendingRecords == null || sendingRecords.isEmpty()) {
+                log.debug("当前没有发送中的手机号记录");
                 return;
             }
 
-            log.info("发现 {} 个发送中的订单，开始查询状态报告", sendingOrders.size());
+            log.info("发现 {} 个发送中的手机号记录，开始查询状态报告", sendingRecords.size());
 
-            // 遍历处理每个订单
-            for (SmsOrder order : sendingOrders) {
+            // 按订单编号和渠道分组，批量查询状态报告
+            var recordsByOrderAndChannel = sendingRecords.stream().collect(Collectors.groupingBy(record -> record.getOrderNo() + "_" + (record.getChannel() != null ? record.getChannel() : "ONBUKA")));
+
+            // 遍历每个订单+渠道组合
+            for (var entry : recordsByOrderAndChannel.entrySet()) {
                 try {
-                    String channelCode = order.getChannel() != null ? order.getChannel() : "ONBUKA";
-                    smsPhoneRecordService.queryAndUpdateReport(order.getId(), channelCode);
+                    List<SmsPhoneRecord> records = entry.getValue();
+                    if (records.isEmpty()) {
+                        continue;
+                    }
+
+                    SmsPhoneRecord firstRecord = records.get(0);
+                    Long orderNo = firstRecord.getOrderNo();
+                    String channelCode = firstRecord.getChannel() != null ? firstRecord.getChannel() : "ONBUKA";
+
+                    // 提取该组的所有msgId
+                    List<String> msgIds = records.stream().map(SmsPhoneRecord::getMsgId).filter(msgId -> msgId != null && !msgId.isEmpty()).distinct().collect(Collectors.toList());
+
+                    if (msgIds.isEmpty()) {
+                        log.warn("订单 {} 没有有效的msgId", orderNo);
+                        continue;
+                    }
+
+                    log.info("查询订单 {} 的状态报告，渠道: {}, msgId数量: {}", orderNo, channelCode, msgIds.size());
+
+                    // 调用渠道策略查询状态报告
+                    SmsChannelStrategy strategy = smsChannelContext.getStrategy(channelCode);
+                    SmsChannelStrategy.SmsReportResult reportResult = strategy.queryReport(msgIds);
+
+                    // 更新状态报告
+                    if (reportResult != null && reportResult.success()) {
+                        smsPhoneRecordService.updateReportResult(reportResult);
+                        log.info("订单 {} 状态报告更新成功", orderNo);
+                    } else {
+                        log.warn("查询订单 {} 状态报告失败，错误信息: {}", orderNo, reportResult != null ? reportResult.message() : "未知错误");
+                    }
                 } catch (Exception e) {
-                    log.error("查询订单状态报告失败，订单ID: {}, 订单编号: {}",
-                        order.getId(), order.getOrderNo(), e);
+                    log.error("查询订单状态报告失败，分组key: {}", entry.getKey(), e);
                 }
             }
 
-            log.info("状态报告查询任务执行完成，共处理 {} 个订单", sendingOrders.size());
+            log.info("状态报告查询任务执行完成，共处理 {} 条记录", sendingRecords.size());
 
         } catch (Exception e) {
             log.error("状态报告查询任务执行异常", e);

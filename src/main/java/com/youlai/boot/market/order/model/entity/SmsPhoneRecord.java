@@ -55,7 +55,7 @@ public class SmsPhoneRecord implements Serializable {
     private String channel;
 
     /**
-     * 发送状态：0=待发送，1=发送成功，2=发送失败
+     * 发送状态：0=未发送， 1=发送中，2=发送成功  -1 发送失败
      */
     private Integer sendStatus;
 

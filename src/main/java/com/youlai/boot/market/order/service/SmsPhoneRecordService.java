@@ -1,6 +1,8 @@
 package com.youlai.boot.market.order.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.youlai.boot.market.order.model.entity.SmsPhoneRecord;
 import com.youlai.boot.market.order.model.query.SmsPhoneRecordQuery;
 import com.youlai.boot.market.order.model.vo.SmsPhoneRecordPageVO;
 import com.youlai.boot.market.order.strategy.SmsChannelStrategy;
@@ -11,7 +13,7 @@ import com.youlai.boot.market.order.strategy.SmsChannelStrategy;
  * @author Ray.Hao
  * @since 2026/04/07
  */
-public interface SmsPhoneRecordService {
+public interface SmsPhoneRecordService extends IService<SmsPhoneRecord> {
 
     /**
      * 短信发送记录分页列表

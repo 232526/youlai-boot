@@ -25,7 +25,7 @@ public class SmsPhoneRecordQuery extends BaseQuery {
     @Schema(description = "手机号")
     private String phoneNumber;
 
-    @Schema(description = "发送状态：0=待发送，1=发送成功，2=发送失败")
+    @Schema(description = "发送状态：0=未发送， 1=发送中，2=发送成功  -1 发送失败")
     private Integer sendStatus;
 
     @Schema(description = "开始日期")
