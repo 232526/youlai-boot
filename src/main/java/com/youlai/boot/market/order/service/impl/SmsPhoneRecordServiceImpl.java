@@ -354,12 +354,10 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             BigDecimal totalAmount = unitPrice.multiply(BigDecimal.valueOf(successRecords.size()));
             double amountDouble = totalAmount.doubleValue();
 
-            // 检查余额是否充足
+            // 记录余额信息（允许扣成负数）
             if (currentBalance < amountDouble) {
-                log.warn("订单 {} 用户余额不足，当前余额: {}, 需要扣除: {}",
-                    order.getOrderNo(), currentBalance, amountDouble);
-                // 这里可以选择抛出异常或者允许负余额，根据业务需求决定
-                // throw new BusinessException("用户余额不足");
+                log.warn("订单 {} 用户余额不足，将扣成负数，当前余额: {}, 需要扣除: {}, 扣后余额: {}",
+                    order.getOrderNo(), currentBalance, amountDouble, currentBalance - amountDouble);
             }
 
             // 计算新余额
