@@ -188,6 +188,10 @@ public class SmsOrderScheduleJob {
                     // 更新状态报告
                     if (reportResult != null && reportResult.success()) {
                         smsPhoneRecordService.updateReportResult(reportResult);
+                        
+                        // 检查是否所有记录都已完成，更新订单状态
+                        smsPhoneRecordService.checkAndUpdateOrderStatus(orderNo);
+                        
                         log.info("订单 {} 状态报告更新成功", orderNo);
                     } else {
                         log.warn("查询订单 {} 状态报告失败，错误信息: {}", orderNo, reportResult != null ? reportResult.message() : "未知错误");

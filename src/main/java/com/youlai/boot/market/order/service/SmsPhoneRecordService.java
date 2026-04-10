@@ -56,4 +56,11 @@ public interface SmsPhoneRecordService extends IService<SmsPhoneRecord> {
      */
     void updateFailedRecords(Long orderNo, String channelCode, String failReason);
 
+    /**
+     * 检查并更新订单状态（当所有手机号记录都完成后）
+     *
+     * @param orderNo 订单编号
+     */
+    void checkAndUpdateOrderStatus(Long orderNo);
+
 }

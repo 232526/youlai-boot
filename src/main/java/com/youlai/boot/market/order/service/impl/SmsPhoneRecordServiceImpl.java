@@ -264,7 +264,8 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
      *
      * @param orderNo 订单编号
      */
-    private void checkAndUpdateOrderStatus(Long orderNo) {
+    @Override
+    public void checkAndUpdateOrderStatus(Long orderNo) {
         // 查询订单下所有记录的状态
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo);
@@ -279,9 +280,9 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         Map<Integer, Long> statusCount = allRecords.stream()
             .collect(Collectors.groupingBy(SmsPhoneRecord::getSendStatus, Collectors.counting()));
 
-        long successCount = statusCount.getOrDefault(1, 0L);
-        long failCount = statusCount.getOrDefault(2, 0L);
-        long pendingCount = statusCount.getOrDefault(0, 0L);
+        long successCount = statusCount.getOrDefault(2, 0L);  // 发送成功
+        long failCount = statusCount.getOrDefault(-1, 0L);   // 发送失败
+        long pendingCount = statusCount.getOrDefault(0, 0L) + statusCount.getOrDefault(1, 0L); // 未发送 + 发送中
 
         // 如果所有记录都已完成（成功或失败），更新订单状态
         if (pendingCount == 0) {
