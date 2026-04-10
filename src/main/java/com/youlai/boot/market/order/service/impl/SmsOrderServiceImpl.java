@@ -49,7 +49,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         // 数据权限：非管理员只能查看自己的订单
         Long currentUserId = SecurityUtils.getUserId();
         boolean isRoot = SecurityUtils.isRoot();
-        
+
         Page<SmsOrderPageVO> page = new Page<>(queryParams.getPageNum(), queryParams.getPageSize());
         return smsOrderMapper.getSmsOrderPage(page, queryParams, currentUserId, isRoot);
     }
@@ -59,7 +59,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         // 数据权限：非管理员只能查看自己的订单
         Long currentUserId = SecurityUtils.getUserId();
         boolean isRoot = SecurityUtils.isRoot();
-        
+
         Page<SmsOrderStatisticsVO> page = new Page<>(queryParams.getPageNum(), queryParams.getPageSize());
         return smsOrderMapper.getSmsOrderStatisticsPage(page, queryParams, currentUserId, isRoot);
     }
@@ -111,7 +111,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
             content.setContent(messageContentList.get(i));
             content.setContentSort(i);
             smsMessageContentMapper.insert(content);
-            contentIds.add(content.getId());
+            contentIds.add(content.getContentId());
         }
 
         // 保存手机号记录（多对多：每个手机号对应所有内容）
@@ -196,8 +196,8 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         // 查询状态为待发送且预约时间小于等于当前时间的订单
         LambdaQueryWrapper<SmsOrder> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsOrder::getStatus, OrderStatusEnum.PENDING.getValue())
-                .le(SmsOrder::getScheduledTime, LocalDateTime.now())
-                .orderByAsc(SmsOrder::getScheduledTime);
+            .le(SmsOrder::getScheduledTime, LocalDateTime.now())
+            .orderByAsc(SmsOrder::getScheduledTime);
         return this.list(wrapper);
     }
 
@@ -205,7 +205,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
     public List<SmsPhoneRecord> getPhoneRecordsByOrderId(Long orderId) {
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsPhoneRecord::getOrderNo, orderId)
-                .orderByAsc(SmsPhoneRecord::getCreateTime);
+            .orderByAsc(SmsPhoneRecord::getCreateTime);
         return smsPhoneRecordMapper.selectList(wrapper);
     }
 
@@ -213,7 +213,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
     public List<SmsMessageContent> getMessageContentsByOrderId(Long orderId) {
         LambdaQueryWrapper<SmsMessageContent> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsMessageContent::getOrderNo, orderId)
-                .orderByAsc(SmsMessageContent::getContentSort);
+            .orderByAsc(SmsMessageContent::getContentSort);
         return smsMessageContentMapper.selectList(wrapper);
     }
 

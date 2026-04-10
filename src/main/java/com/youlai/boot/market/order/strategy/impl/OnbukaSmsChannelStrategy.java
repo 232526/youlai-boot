@@ -1,5 +1,9 @@
 package com.youlai.boot.market.order.strategy.impl;
 
+import cn.hutool.crypto.SecureUtil;
+import cn.hutool.http.Header;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
@@ -12,6 +16,8 @@ import com.youlai.boot.market.order.strategy.SmsChannelStrategy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,27 +55,47 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
     @Override
     public SmsSendResult sendSms(List<String> phoneNumbers, String senderId, String content) {
         try {
-            ApiData apiData = new ApiData(APP_KEY, APP_SECRET, API_URL);
-            SmsSdkClient smsSdkClient = SmsSdkClient.getInstance(apiData);
+            HttpRequest request = HttpRequest.post(API_URL + "/sendSms");
 
-            SendSmsDTO sendSmsDTO = new SendSmsDTO();
-            sendSmsDTO.setAppId(APP_ID);
-            // 多个号码用英文逗号分隔
-            sendSmsDTO.setNumbers(String.join(",", phoneNumbers));
-            sendSmsDTO.setSenderId(senderId);
-            sendSmsDTO.setContent(content);
+            //generate md5 key
+            String datetime = String.valueOf(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().getEpochSecond());
+            String sign = SecureUtil.md5(APP_KEY.concat(APP_SECRET).concat(datetime));
 
-            String result = smsSdkClient.sendSmsV3(sendSmsDTO);
-            log.info("Onbuka短信发送结果: {}", result);
+            request.header(Header.CONNECTION, "Keep-Alive")
+                .header(Header.CONTENT_TYPE, "application/json;charset=UTF-8")
+                .header("Sign", sign)
+                .header("Timestamp", datetime)
+                .header("Api-Key", APP_KEY);
 
-            // 这里需要根据实际的返回格式进行解析
-            List<String> msgIds = parseMsgIds(result);
+            final String params = JSONUtil.createObj()
+                .set("appId", APP_ID)
+                .set("numbers", String.join(",", phoneNumbers))
+                .set("content", content)
+                .set("senderId", senderId)
+                .toString();
 
-            return new SmsSendResult(true, "发送成功", msgIds);
+            HttpResponse response = request.body(params).execute();
+            if (response.isOk()) {
+                String result = response.body();
+                // 这里需要根据实际的返回格式进行解析
+                List<String> msgIds = parseMsgIds(result);
+                return new SmsSendResult(true, "发送成功", msgIds);
+            }
+            // HTTP请求失败，提取错误信息
+            String failReason = "HTTP请求失败: " + response.getStatus();
+            log.error("Onbuka短信发送HTTP请求失败: {}", failReason);
+            return new SmsSendResult(false, failReason, null, failReason);
 
+
+        } catch (RuntimeException e) {
+            // 业务异常（包括状态码失败）
+            log.error("Onbuka短信发送失败", e);
+            String failReason = e.getMessage();
+            return new SmsSendResult(false, failReason, null, failReason);
         } catch (Exception e) {
             log.error("Onbuka短信发送失败", e);
-            return new SmsSendResult(false, "发送失败: " + e.getMessage(), null);
+            String failReason = "发送失败: " + e.getMessage();
+            return new SmsSendResult(false, failReason, null, failReason);
         }
     }
 
@@ -113,8 +139,10 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
             // 检查状态是否为成功
             String status = jsonObject.getStr("status");
             if (!"0".equals(status)) {
-                log.warn("Onbuka短信发送失败，状态码: {}", status);
-                return msgIds;
+                // 获取失败原因
+                String failReason = jsonObject.toString();
+                log.warn("Onbuka短信发送失败，状态码: {}, 失败原因: {}", status, failReason);
+                throw new RuntimeException("短信发送失败: " + failReason);
             }
 
             // 获取array数组
@@ -130,8 +158,11 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
             }
 
             log.info("成功解析{}个消息ID", msgIds.size());
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             log.error("解析Onbuka短信发送结果失败", e);
+            throw new RuntimeException("解析发送结果失败: " + e.getMessage(), e);
         }
 
         return msgIds;
@@ -183,14 +214,14 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
                     if (msgId != null && !msgId.isEmpty()) {
                         // 解析 pricedetail
                         SmsReportResult.PriceDetail priceDetail = parsePriceDetail(item.getJSONObject("pricedetail"));
-                        
+
                         SmsReportResult.SmsStatus smsStatusObj = new SmsReportResult.SmsStatus(
-                                msgId,
-                                phoneNumber,
-                                statusCode,
-                                statusDesc,
-                                receiveTime,
-                                priceDetail
+                            msgId,
+                            phoneNumber,
+                            statusCode,
+                            statusDesc,
+                            receiveTime,
+                            priceDetail
                         );
                         statusList.add(smsStatusObj);
                     }
@@ -275,14 +306,14 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
             }
 
             return new SmsReportResult.PriceDetail(
-                    payAmount,
-                    currency,
-                    chargeCount,
-                    unitPrice,
-                    quoteExchange,
-                    settlePay,
-                    settleCurrency,
-                    settleUnitPrice
+                payAmount,
+                currency,
+                chargeCount,
+                unitPrice,
+                quoteExchange,
+                settlePay,
+                settleCurrency,
+                settleUnitPrice
             );
         } catch (Exception e) {
             log.error("解析费用详情失败", e);

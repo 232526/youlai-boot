@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -46,5 +47,20 @@ public class SmsPhoneRecordPageVO {
     @Schema(description = "创建时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
+
+    @Schema(description = "总费用")
+    private BigDecimal payAmount;
+
+    @Schema(description = "报价币种")
+    private String currency;
+
+    @Schema(description = "计费条数")
+    private Integer chargeCount;
+
+    @Schema(description = "报价单价")
+    private BigDecimal unitPrice;
+
+    @Schema(description = "我方支付总费用")
+    private BigDecimal mePayAmount;
 
 }

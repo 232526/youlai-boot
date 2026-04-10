@@ -86,7 +86,9 @@ public class SmsOrder extends BaseEntity {
      */
     private String remark;
 
-
-
+    /**
+     * 失败原因
+     */
+    private String failMsg;
 
 }

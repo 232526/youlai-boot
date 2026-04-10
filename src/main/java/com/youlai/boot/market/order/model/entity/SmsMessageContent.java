@@ -26,7 +26,7 @@ public class SmsMessageContent implements Serializable {
      * 主键
      */
     @TableId(type = IdType.AUTO)
-    private Long id;
+    private Long contentId;
 
     /**
      * 关联订单ID

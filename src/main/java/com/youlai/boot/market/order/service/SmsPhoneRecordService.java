@@ -45,4 +45,13 @@ public interface SmsPhoneRecordService {
      */
     void queryAndUpdateReport(Long orderNo, String channelCode);
 
+    /**
+     * 批量更新订单下所有手机号记录的发送失败状态
+     *
+     * @param orderNo 订单编号
+     * @param channelCode 渠道代码
+     * @param failReason 失败原因
+     */
+    void updateFailedRecords(Long orderNo, String channelCode, String failReason);
+
 }

@@ -296,4 +296,38 @@ public class SmsPhoneRecordServiceImpl implements SmsPhoneRecordService {
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateFailedRecords(Long orderNo, String channelCode, String failReason) {
+        // 查询该订单下所有待发送的手机号记录
+        LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
+            .eq(SmsPhoneRecord::getSendStatus, 0); // 只更新待发送的记录
+
+        List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(wrapper);
+
+        if (CollUtil.isEmpty(records)) {
+            log.warn("未找到需要更新的待发送记录，订单编号: {}", orderNo);
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // 批量更新为发送失败状态
+        for (SmsPhoneRecord record : records) {
+            record.setChannel(channelCode); // 设置渠道代码
+            record.setSendStatus(2); // 发送失败
+            record.setFailReason(failReason);
+            record.setSendTime(now);
+        }
+
+        // 批量更新数据库
+        for (SmsPhoneRecord record : records) {
+            smsPhoneRecordMapper.updateById(record);
+        }
+
+        log.info("批量更新发送失败记录成功，订单编号: {}, 渠道: {}, 更新记录数: {}, 失败原因: {}",
+            orderNo, channelCode, records.size(), failReason);
+    }
+
 }

@@ -17,7 +17,12 @@
         END AS send_status_desc,
         r.send_time,
         r.fail_reason,
-        r.create_time
+        r.create_time,
+        r.pay_amount,
+        r.currency,
+        r.charge_count,
+        r.unit_price,
+        r.me_pay_amount
         FROM sms_phone_record r
         LEFT JOIN sms_content c ON r.content_id = c.content_id
         LEFT JOIN sms_order o ON r.order_no = o.order_no
@@ -29,8 +34,8 @@
             <if test="queryParams.countryId != null">
                 AND o.country_id = #{queryParams.countryId}
             </if>
-            <if test="queryParams.phone != null and queryParams.phone != ''">
-                AND r.phone_number LIKE CONCAT('%', #{queryParams.phone}, '%')
+            <if test="queryParams.phoneNumber != null and queryParams.phoneNumber != ''">
+                AND r.phone_number LIKE CONCAT('%', #{queryParams.phone_number}, '%')
             </if>
             <if test="queryParams.sendStatus != null">
                 AND r.send_status = #{queryParams.sendStatus}

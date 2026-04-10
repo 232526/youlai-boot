@@ -1,7 +1,6 @@
 package com.youlai.boot.market.order.strategy;
 
 import com.youlai.boot.common.exception.BusinessException;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -14,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * 管理所有短信渠道策略，支持动态切换渠道
  */
 @Component
-@RequiredArgsConstructor
 public class SmsChannelContext {
 
     private final Map<String, SmsChannelStrategy> strategyMap = new ConcurrentHashMap<>();

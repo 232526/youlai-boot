@@ -1,5 +1,6 @@
 package com.youlai.boot.market.order.job;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.youlai.boot.market.order.enums.OrderStatusEnum;
 import com.youlai.boot.market.order.model.entity.SmsMessageContent;
 import com.youlai.boot.market.order.model.entity.SmsOrder;
@@ -42,7 +43,7 @@ public class SmsOrderScheduleJob {
 
         try {
             // 查询当前需要执行的待发送订单
-            java.util.List<com.youlai.boot.market.order.model.entity.SmsOrder> pendingOrders = smsOrderService.getPendingOrdersToExecute();
+            List<SmsOrder> pendingOrders = smsOrderService.getPendingOrdersToExecute();
 
             if (pendingOrders == null || pendingOrders.isEmpty()) {
                 log.debug("当前没有需要执行的订单任务");
@@ -74,7 +75,7 @@ public class SmsOrderScheduleJob {
      *
      * @param order 订单实体
      */
-    private void processOrder(com.youlai.boot.market.order.model.entity.SmsOrder order) {
+    private void processOrder(SmsOrder order) {
         log.info("开始处理订单，订单ID: {}, 订单编号: {}, 预约时间: {}, 渠道: {}",
             order.getId(), order.getOrderNo(), order.getScheduledTime(), order.getChannel());
 
@@ -124,9 +125,14 @@ public class SmsOrderScheduleJob {
             }
         } else {
             log.error("短信发送失败，订单ID: {}, 错误信息: {}", order.getId(), sendResult.message());
-            // 更新订单状态为发送失败
+            // 更新订单状态为发送失败，并保存失败原因
             order.setStatus(OrderStatusEnum.FAILED.getValue());
+            order.setFailMsg(sendResult.failReason() != null ? sendResult.failReason() : sendResult.message());
             smsOrderService.updateById(order);
+
+            // 更新该订单下所有手机号记录的状态为发送失败
+            String failReason = sendResult.failReason() != null ? sendResult.failReason() : sendResult.message();
+            smsPhoneRecordService.updateFailedRecords(order.getId(), channelCode, failReason);
         }
     }
 
@@ -141,12 +147,12 @@ public class SmsOrderScheduleJob {
 
         try {
             // 查询所有发送中的订单
-            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SmsOrder> wrapper = 
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+            LambdaQueryWrapper<SmsOrder> wrapper =
+                new LambdaQueryWrapper<>();
             wrapper.eq(SmsOrder::getStatus, OrderStatusEnum.SENDING.getValue());
-            
+
             List<SmsOrder> sendingOrders = smsOrderService.list(wrapper);
-            
+
             if (sendingOrders == null || sendingOrders.isEmpty()) {
                 log.debug("当前没有发送中的订单");
                 return;
@@ -160,8 +166,8 @@ public class SmsOrderScheduleJob {
                     String channelCode = order.getChannel() != null ? order.getChannel() : "ONBUKA";
                     smsPhoneRecordService.queryAndUpdateReport(order.getId(), channelCode);
                 } catch (Exception e) {
-                    log.error("查询订单状态报告失败，订单ID: {}, 订单编号: {}", 
-                            order.getId(), order.getOrderNo(), e);
+                    log.error("查询订单状态报告失败，订单ID: {}, 订单编号: {}",
+                        order.getId(), order.getOrderNo(), e);
                 }
             }
 
@@ -178,9 +184,9 @@ public class SmsOrderScheduleJob {
      * @param order 订单实体
      * @return 发送号码
      */
-    private String getSenderId(com.youlai.boot.market.order.model.entity.SmsOrder order) {
-        // TODO: 根据国家ID或订单配置获取发送号码
+    private String getSenderId(SmsOrder order) {
         // 这里可以根据实际业务逻辑实现
-        return "15013893072"; // 示例：返回默认的发送号码
+        // todo 默认不传
+        return "";
     }
 }

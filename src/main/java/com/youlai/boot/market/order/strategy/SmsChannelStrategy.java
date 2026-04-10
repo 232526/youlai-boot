@@ -48,8 +48,12 @@ public interface SmsChannelStrategy {
     record SmsSendResult(
         boolean success,
         String message,
-        List<String> msgIds
+        List<String> msgIds,
+        String failReason
     ) {
+        public SmsSendResult(boolean success, String message, List<String> msgIds) {
+            this(success, message, msgIds, null);
+        }
     }
 
     /**
