@@ -4,13 +4,13 @@
 
     <select id="getSmsOrderPage" resultType="com.youlai.boot.market.order.model.vo.SmsOrderPageVO">
         SELECT
-            id,
-            order_no,
-            country_name,
-            has_area_code,
-            scheduled_time,
-            status,
-            CASE status
+            so.id,
+            so.order_no,
+            so.country_name,
+            so.has_area_code,
+            so.scheduled_time,
+            so.status,
+            CASE so.status
                 WHEN 0 THEN '待发送'
                 WHEN 1 THEN '发送中'
                 WHEN 2 THEN '已完成'
@@ -18,27 +18,28 @@
                 WHEN 4 THEN '已取消'
                 ELSE '未知'
             END AS status_desc,
-            success_count,
-            fail_count,
-            total_count,
-            create_time
-        FROM sms_order
+            so.success_count,
+            so.fail_count,
+            so.total_count,
+            so.create_time,
+            so.create_by
+        FROM sms_order so
         <where>
             <if test="queryParams.orderNo != null and queryParams.orderNo != ''">
-                AND order_no LIKE CONCAT('%', #{queryParams.orderNo}, '%')
+                AND so.order_no LIKE CONCAT('%', #{queryParams.orderNo}, '%')
             </if>
             <if test="queryParams.countryId != null">
-                AND country_id = #{queryParams.countryId}
+                AND so.country_id = #{queryParams.countryId}
             </if>
             <if test="queryParams.status != null">
-                AND status = #{queryParams.status}
+                AND so.status = #{queryParams.status}
             </if>
             <!-- 数据权限：非管理员只能查看自己的订单 -->
             <if test="!isRoot">
-                AND create_by = #{currentUserId}
+                AND so.create_by = #{currentUserId}
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY so.create_time DESC
     </select>
 
     <select id="getSmsOrderStatisticsPage" resultType="com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO">

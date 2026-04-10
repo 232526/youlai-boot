@@ -83,4 +83,9 @@ public class SysUser extends BaseEntity {
      * 币种类型
      */
     private String coin;
+
+    /**
+     * 每条短信单价
+     */
+    private Double unitPrice;
 }

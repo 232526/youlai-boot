@@ -30,7 +30,7 @@
         <where>
             r.is_deleted = 0
             <if test="queryParams.orderNo != null and queryParams.orderNo != ''">
-                AND r.order_no = #{queryParams.orderNo}
+                AND r.order_no LIKE CONCAT('%', #{queryParams.orderNo}, '%')
             </if>
             <if test="queryParams.countryId != null">
                 AND o.country_id = #{queryParams.countryId}

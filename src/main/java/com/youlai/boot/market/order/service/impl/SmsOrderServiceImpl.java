@@ -1,5 +1,6 @@
 package com.youlai.boot.market.order.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -20,14 +21,19 @@ import com.youlai.boot.market.order.model.vo.SmsOrderPageVO;
 import com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO;
 import com.youlai.boot.market.order.service.SmsOrderService;
 import com.youlai.boot.system.mapper.CountryMapper;
+import com.youlai.boot.system.mapper.UserMapper;
 import com.youlai.boot.system.model.entity.Country;
+import com.youlai.boot.system.model.entity.SysUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 短信订单业务实现类
@@ -43,6 +49,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
     private final CountryMapper countryMapper;
     private final SmsMessageContentMapper smsMessageContentMapper;
     private final SmsPhoneRecordMapper smsPhoneRecordMapper;
+    private final UserMapper userMapper;
 
     @Override
     public Page<SmsOrderPageVO> getSmsOrderPage(SmsOrderQuery queryParams) {
@@ -51,7 +58,84 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         boolean isRoot = SecurityUtils.isRoot();
 
         Page<SmsOrderPageVO> page = new Page<>(queryParams.getPageNum(), queryParams.getPageSize());
-        return smsOrderMapper.getSmsOrderPage(page, queryParams, currentUserId, isRoot);
+        Page<SmsOrderPageVO> result = smsOrderMapper.getSmsOrderPage(page, queryParams, currentUserId, isRoot);
+
+        // 处理关联字段：用户名、短信数量、文本数量
+        if (CollUtil.isNotEmpty(result.getRecords())) {
+            List<SmsOrderPageVO> records = result.getRecords();
+            
+            // 1. 收集所有用户ID（从createBy字段的字符串转换为Long）
+            Set<Long> userIds = records.stream()
+                .map(record -> {
+                    try {
+                        return Long.parseLong(record.getCreateBy());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+            
+            // 批量查询用户名
+            Map<Long, String> userNameMap = Map.of();
+            if (CollUtil.isNotEmpty(userIds)) {
+                List<SysUser> users = userMapper.selectBatchIds(userIds);
+                userNameMap = users.stream()
+                    .collect(Collectors.toMap(SysUser::getId, SysUser::getUsername));
+            }
+            
+            // 2. 收集所有订单ID，批量查询短信数量和文本数量
+            List<Long> orderIds = records.stream()
+                .map(SmsOrderPageVO::getId)
+                .collect(Collectors.toList());
+            
+            // 查询每个订单的短信内容数量
+            LambdaQueryWrapper<SmsMessageContent> contentWrapper = new LambdaQueryWrapper<>();
+            contentWrapper.in(SmsMessageContent::getOrderNo, orderIds);
+            List<SmsMessageContent> allContents = smsMessageContentMapper.selectList(contentWrapper);
+            Map<Long, Long> contentCountMap = allContents.stream()
+                .collect(Collectors.groupingBy(
+                    SmsMessageContent::getOrderNo,
+                    Collectors.counting()
+                ));
+            
+            // 查询每个订单的不重复手机号数量
+            LambdaQueryWrapper<SmsPhoneRecord> phoneWrapper = new LambdaQueryWrapper<>();
+            phoneWrapper.in(SmsPhoneRecord::getOrderNo, orderIds);
+            List<SmsPhoneRecord> allPhones = smsPhoneRecordMapper.selectList(phoneWrapper);
+            Map<Long, Long> phoneCountMap = allPhones.stream()
+                .collect(Collectors.groupingBy(
+                    SmsPhoneRecord::getOrderNo,
+                    Collectors.mapping(SmsPhoneRecord::getPhoneNumber, Collectors.toSet())
+                ))
+                .entrySet().stream()
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> (long) entry.getValue().size()
+                ));
+            
+            // 3. 填充数据
+            final Map<Long, String> finalUserNameMap = userNameMap;
+            records.forEach(record -> {
+                // 填充用户名（将Long类型的用户ID转换为String类型的用户名）
+                try {
+                    Long userId = Long.parseLong(record.getCreateBy());
+                    record.setCreateBy(finalUserNameMap.getOrDefault(userId, ""));
+                } catch (NumberFormatException e) {
+                    record.setCreateBy("");
+                }
+                
+                // 填充文本数量
+                Long contentCount = contentCountMap.getOrDefault(record.getId(), 0L);
+                record.setContentCount(contentCount.intValue());
+                
+                // 填充短信数量（不重复手机号数量 × 文本数量）
+                Long phoneCount = phoneCountMap.getOrDefault(record.getId(), 0L);
+                record.setSmsCount((int) (phoneCount * contentCount));
+            });
+        }
+
+        return result;
     }
 
     @Override

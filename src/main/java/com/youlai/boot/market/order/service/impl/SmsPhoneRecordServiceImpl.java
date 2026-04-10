@@ -316,19 +316,18 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     /**
      * 创建交易流水记录
      *
-     * @param order 订单信息
+     * @param order        订单信息
      * @param phoneRecords 手机号发送记录列表
      */
     private void createTransactionRecord(SmsOrder order, List<SmsPhoneRecord> phoneRecords) {
         try {
             // 计算总支出金额（只统计成功的记录）
-            BigDecimal totalAmount = phoneRecords.stream()
-                .filter(record -> record.getSendStatus() != null && record.getSendStatus() == 2) // 只统计发送成功的
-                .map(record -> record.getMePayAmount() != null ? record.getMePayAmount() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            List<SmsPhoneRecord> successRecords = phoneRecords.stream()
+                .filter(record -> record.getSendStatus() != null && record.getSendStatus() == 2).toList();
+
 
             // 如果没有支出，不生成流水
-            if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            if (successRecords.size() <= 0) {
                 log.debug("订单 {} 没有产生费用，不生成流水记录", order.getOrderNo());
                 return;
             }
@@ -349,13 +348,15 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
             // 获取当前余额（Double类型）
             Double currentBalance = user.getPrice() != null ? user.getPrice() : 0.0;
-            
-            // 将BigDecimal转换为Double进行计算
+
+            // 计算总费用：单价 × 成功发送数量（使用BigDecimal避免精度丢失）
+            BigDecimal unitPrice = user.getUnitPrice() != null ? BigDecimal.valueOf(user.getUnitPrice()) : BigDecimal.ZERO;
+            BigDecimal totalAmount = unitPrice.multiply(BigDecimal.valueOf(successRecords.size()));
             double amountDouble = totalAmount.doubleValue();
-            
+
             // 检查余额是否充足
             if (currentBalance < amountDouble) {
-                log.warn("订单 {} 用户余额不足，当前余额: {}, 需要扣除: {}", 
+                log.warn("订单 {} 用户余额不足，当前余额: {}, 需要扣除: {}",
                     order.getOrderNo(), currentBalance, amountDouble);
                 // 这里可以选择抛出异常或者允许负余额，根据业务需求决定
                 // throw new BusinessException("用户余额不足");
@@ -370,11 +371,11 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             updateUser.setPrice(newBalance);
             userMapper.updateById(updateUser);
 
-            log.info("用户 {} 余额更新成功，原余额: {}, 扣除: {}, 新余额: {}", 
+            log.info("用户 {} 余额更新成功，原余额: {}, 扣除: {}, 新余额: {}",
                 userId, currentBalance, amountDouble, newBalance);
 
             // 生成流水号：TXN + 时间戳 + 随机6位
-            String transNo = "TXN" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) 
+            String transNo = "TXN" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 + IdUtil.fastSimpleUUID().substring(0, 6).toUpperCase();
 
             // 创建流水记录
@@ -391,7 +392,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 order.getOrderNo(), order.getSuccessCount(), order.getFailCount()));
 
             userTransactionService.save(transaction);
-            log.info("生成流水记录成功，流水号: {}, 订单号: {}, 金额: {}, 余额: {}", 
+            log.info("生成流水记录成功，流水号: {}, 订单号: {}, 金额: {}, 余额: {}",
                 transNo, order.getOrderNo(), totalAmount, newBalance);
         } catch (Exception e) {
             log.error("生成流水记录失败，订单号: {}", order.getOrderNo(), e);

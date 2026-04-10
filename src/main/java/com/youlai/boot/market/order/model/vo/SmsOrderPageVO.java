@@ -53,4 +53,13 @@ public class SmsOrderPageVO {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 
+    @Schema(description = "创建用户名")
+    private String createBy;
+
+    @Schema(description = "短信数量（手机号*文本数量）")
+    private Integer smsCount;
+
+    @Schema(description = "短信文本数量")
+    private Integer contentCount;
+
 }
