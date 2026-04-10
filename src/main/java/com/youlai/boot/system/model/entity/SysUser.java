@@ -2,6 +2,7 @@ package com.youlai.boot.system.model.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.youlai.boot.common.base.BaseEntity;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -72,4 +73,14 @@ public class SysUser extends BaseEntity {
      * 是否删除(0-否 1-是)
      */
     private Integer isDeleted;
+
+    /**
+     * 余额
+     */
+    private Double price;
+
+    /**
+     * 币种类型
+     */
+    private String coin;
 }

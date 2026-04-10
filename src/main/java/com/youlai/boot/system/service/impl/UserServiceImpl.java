@@ -127,7 +127,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 检查用户名是否已存在
         long count = this.count(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, username));
+            .eq(SysUser::getUsername, username));
         Assert.isTrue(count == 0, "用户名已存在");
 
         // 设置默认加密密码
@@ -164,8 +164,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 检查用户名是否已存在（排除当前用户）
         long count = this.count(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, username)
-                .ne(SysUser::getId, userId)
+            .eq(SysUser::getUsername, username)
+            .ne(SysUser::getId, userId)
         );
         Assert.isTrue(count == 0, "用户名已存在");
 
@@ -195,8 +195,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         Assert.isTrue(StrUtil.isNotBlank(idsStr), "删除的用户数据为空");
         // 逻辑删除
         List<Long> ids = Arrays.stream(idsStr.split(","))
-                .map(Long::parseLong)
-                .collect(Collectors.toList());
+            .map(Long::parseLong)
+            .collect(Collectors.toList());
 
         boolean result = this.removeByIds(ids);
         return result;
@@ -257,11 +257,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (CollectionUtil.isNotEmpty(exportUsers)) {
             //获取性别的字典项
             Map<String, String> genderMap = dictItemService.list(
-                            new LambdaQueryWrapper<DictItem>().eq(DictItem::getDictCode,
-                                    DictCodeEnum.GENDER.getValue())
-                    ).stream()
-                    .collect(Collectors.toMap(DictItem::getValue, DictItem::getLabel)
-                    );
+                    new LambdaQueryWrapper<DictItem>().eq(DictItem::getDictCode,
+                        DictCodeEnum.GENDER.getValue())
+                ).stream()
+                .collect(Collectors.toMap(DictItem::getValue, DictItem::getLabel)
+                );
 
             exportUsers.forEach(item -> {
                 String gender = item.getGender();
@@ -292,15 +292,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 获取登录用户基础信息
         SysUser user = this.getOne(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, username)
-                .select(
-                        SysUser::getId,
-                        SysUser::getUsername,
-                        SysUser::getNickname,
-                        SysUser::getAvatar,
-                        SysUser::getGender,
-                        SysUser::getDeptId
-                )
+            .eq(SysUser::getUsername, username)
+            .select(
+                SysUser::getId,
+                SysUser::getUsername,
+                SysUser::getNickname,
+                SysUser::getAvatar,
+                SysUser::getGender,
+                SysUser::getMobile,
+                SysUser::getEmail,
+                SysUser::getPrice,
+                SysUser::getCoin
+            )
         );
         // entity->Vo
         CurrentUserVO userInfoVo = userConverter.toCurrentUserVo(user);
@@ -323,12 +326,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         // 用户角色名称集合
         if (CollectionUtil.isNotEmpty(roles)) {
             Set<String> roleNames = roleService.list(new LambdaQueryWrapper<Role>()
-                            .in(Role::getCode, roles)
-                            .select(Role::getName)
-                    ).stream()
-                    .map(Role::getName)
-                    .filter(StrUtil::isNotBlank)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
+                    .in(Role::getCode, roles)
+                    .select(Role::getName)
+                ).stream()
+                .map(Role::getName)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
             userInfoVo.setRoleNames(roleNames);
         }
 
@@ -366,10 +369,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
 
         return this.update(new LambdaUpdateWrapper<SysUser>()
-                .eq(SysUser::getId, userId)
-                .set(formData.getNickname() != null, SysUser::getNickname, formData.getNickname())
-                .set(formData.getAvatar() != null, SysUser::getAvatar, formData.getAvatar())
-                .set(formData.getGender() != null, SysUser::getGender, formData.getGender())
+            .eq(SysUser::getId, userId)
+            .set(formData.getNickname() != null, SysUser::getNickname, formData.getNickname())
+            .set(formData.getAvatar() != null, SysUser::getAvatar, formData.getAvatar())
+            .set(formData.getGender() != null, SysUser::getGender, formData.getGender())
         );
     }
 
@@ -406,8 +409,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         String newPassword = data.getNewPassword();
         boolean result = this.update(new LambdaUpdateWrapper<SysUser>()
-                .eq(SysUser::getId, userId)
-                .set(SysUser::getPassword, passwordEncoder.encode(newPassword))
+            .eq(SysUser::getId, userId)
+            .set(SysUser::getPassword, passwordEncoder.encode(newPassword))
         );
 
         if (result) {
@@ -427,8 +430,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Override
     public boolean resetUserPassword(Long userId, String password) {
         boolean result = this.update(new LambdaUpdateWrapper<SysUser>()
-                .eq(SysUser::getId, userId)
-                .set(SysUser::getPassword, passwordEncoder.encode(password))
+            .eq(SysUser::getId, userId)
+            .set(SysUser::getPassword, passwordEncoder.encode(password))
         );
         if (result) {
             // 管理员重置用户密码后，使该用户的所有会话失效
@@ -448,8 +451,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         Long currentUserId = SecurityUtils.getUserId();
         long mobileCount = this.count(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getMobile, mobile)
-                .ne(SysUser::getId, currentUserId)
+            .eq(SysUser::getMobile, mobile)
+            .ne(SysUser::getId, currentUserId)
         );
         if (mobileCount > 0) {
             throw new BusinessException("手机号已被其他账号绑定");
@@ -506,8 +509,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
 
         long mobileCount = this.count(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getMobile, mobile)
-                .ne(SysUser::getId, currentUserId)
+            .eq(SysUser::getMobile, mobile)
+            .ne(SysUser::getId, currentUserId)
         );
         if (mobileCount > 0) {
             throw new BusinessException("手机号已被其他账号绑定");
@@ -517,9 +520,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 更新手机号码
         return this.update(
-                new LambdaUpdateWrapper<SysUser>()
-                        .eq(SysUser::getId, currentUserId)
-                        .set(SysUser::getMobile, mobile)
+            new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, currentUserId)
+                .set(SysUser::getMobile, mobile)
         );
     }
 
@@ -533,8 +536,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         Long currentUserId = SecurityUtils.getUserId();
         long emailCount = this.count(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getEmail, email)
-                .ne(SysUser::getId, currentUserId)
+            .eq(SysUser::getEmail, email)
+            .ne(SysUser::getId, currentUserId)
         );
         if (emailCount > 0) {
             throw new BusinessException("邮箱已被其他账号绑定");
@@ -587,8 +590,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
 
         long emailCount = this.count(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getEmail, email)
-                .ne(SysUser::getId, currentUserId)
+            .eq(SysUser::getEmail, email)
+            .ne(SysUser::getId, currentUserId)
         );
         if (emailCount > 0) {
             throw new BusinessException("邮箱已被其他账号绑定");
@@ -598,9 +601,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 更新邮箱地址
         return this.update(
-                new LambdaUpdateWrapper<SysUser>()
-                        .eq(SysUser::getId, currentUserId)
-                        .set(SysUser::getEmail, email)
+            new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, currentUserId)
+                .set(SysUser::getEmail, email)
         );
     }
 
@@ -629,8 +632,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
 
         return this.update(new LambdaUpdateWrapper<SysUser>()
-                .eq(SysUser::getId, currentUserId)
-                .set(SysUser::getMobile, null)
+            .eq(SysUser::getId, currentUserId)
+            .set(SysUser::getMobile, null)
         );
     }
 
@@ -659,8 +662,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
 
         return this.update(new LambdaUpdateWrapper<SysUser>()
-                .eq(SysUser::getId, currentUserId)
-                .set(SysUser::getEmail, null)
+            .eq(SysUser::getId, currentUserId)
+            .set(SysUser::getEmail, null)
         );
     }
 
@@ -672,7 +675,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Override
     public List<Option<String>> listUserOptions() {
         List<SysUser> list = this.list(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getStatus, 1)
+            .eq(SysUser::getStatus, 1)
         );
         return userConverter.toOptions(list);
     }
