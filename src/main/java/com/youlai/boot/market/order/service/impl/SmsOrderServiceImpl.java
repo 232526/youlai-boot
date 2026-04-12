@@ -63,57 +63,38 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         // 处理关联字段：用户名、短信数量、文本数量
         if (CollUtil.isNotEmpty(result.getRecords())) {
             List<SmsOrderPageVO> records = result.getRecords();
-            
+
             // 1. 收集所有用户ID（从createBy字段的字符串转换为Long）
-            Set<Long> userIds = records.stream()
-                .map(record -> {
-                    try {
-                        return Long.parseLong(record.getCreateBy());
-                    } catch (NumberFormatException e) {
-                        return null;
-                    }
-                })
-                .filter(id -> id != null)
-                .collect(Collectors.toSet());
-            
+            Set<Long> userIds = records.stream().map(record -> {
+                try {
+                    return Long.parseLong(record.getCreateBy());
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }).filter(id -> id != null).collect(Collectors.toSet());
+
             // 批量查询用户名
             Map<Long, String> userNameMap = Map.of();
             if (CollUtil.isNotEmpty(userIds)) {
                 List<SysUser> users = userMapper.selectBatchIds(userIds);
-                userNameMap = users.stream()
-                    .collect(Collectors.toMap(SysUser::getId, SysUser::getUsername));
+                userNameMap = users.stream().collect(Collectors.toMap(SysUser::getId, SysUser::getUsername));
             }
-            
+
             // 2. 收集所有订单ID，批量查询短信数量和文本数量
-            List<Long> orderIds = records.stream()
-                .map(SmsOrderPageVO::getId)
-                .collect(Collectors.toList());
-            
+            List<Long> orderIds = records.stream().map(SmsOrderPageVO::getId).collect(Collectors.toList());
+
             // 查询每个订单的短信内容数量
             LambdaQueryWrapper<SmsMessageContent> contentWrapper = new LambdaQueryWrapper<>();
             contentWrapper.in(SmsMessageContent::getOrderNo, orderIds);
             List<SmsMessageContent> allContents = smsMessageContentMapper.selectList(contentWrapper);
-            Map<Long, Long> contentCountMap = allContents.stream()
-                .collect(Collectors.groupingBy(
-                    SmsMessageContent::getOrderNo,
-                    Collectors.counting()
-                ));
-            
+            Map<Long, Long> contentCountMap = allContents.stream().collect(Collectors.groupingBy(SmsMessageContent::getOrderNo, Collectors.counting()));
+
             // 查询每个订单的不重复手机号数量
             LambdaQueryWrapper<SmsPhoneRecord> phoneWrapper = new LambdaQueryWrapper<>();
             phoneWrapper.in(SmsPhoneRecord::getOrderNo, orderIds);
             List<SmsPhoneRecord> allPhones = smsPhoneRecordMapper.selectList(phoneWrapper);
-            Map<Long, Long> phoneCountMap = allPhones.stream()
-                .collect(Collectors.groupingBy(
-                    SmsPhoneRecord::getOrderNo,
-                    Collectors.mapping(SmsPhoneRecord::getPhoneNumber, Collectors.toSet())
-                ))
-                .entrySet().stream()
-                .collect(Collectors.toMap(
-                    Map.Entry::getKey,
-                    entry -> (long) entry.getValue().size()
-                ));
-            
+            Map<Long, Long> phoneCountMap = allPhones.stream().collect(Collectors.groupingBy(SmsPhoneRecord::getOrderNo, Collectors.mapping(SmsPhoneRecord::getPhoneNumber, Collectors.toSet()))).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> (long) entry.getValue().size()));
+
             // 3. 填充数据
             final Map<Long, String> finalUserNameMap = userNameMap;
             records.forEach(record -> {
@@ -124,11 +105,11 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
                 } catch (NumberFormatException e) {
                     record.setCreateBy("");
                 }
-                
+
                 // 填充文本数量
                 Long contentCount = contentCountMap.getOrDefault(record.getId(), 0L);
                 record.setContentCount(contentCount.intValue());
-                
+
                 // 填充短信数量（不重复手机号数量 × 文本数量）
                 Long phoneCount = phoneCountMap.getOrDefault(record.getId(), 0L);
                 record.setSmsCount((int) (phoneCount * contentCount));
@@ -161,9 +142,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         }
 
         // 将时间戳转换为 LocalDateTime
-        LocalDateTime scheduledTime = LocalDateTime.ofInstant(
-            java.time.Instant.ofEpochMilli(formData.getScheduledTime()),
-            java.time.ZoneId.systemDefault());
+        LocalDateTime scheduledTime = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(formData.getScheduledTime()), java.time.ZoneId.systemDefault());
 
         // 校验预约时间
         if (scheduledTime.isBefore(LocalDateTime.now())) {
@@ -223,21 +202,15 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
 
         // 查询短信内容列表
         LambdaQueryWrapper<SmsMessageContent> contentWrapper = new LambdaQueryWrapper<>();
-        contentWrapper.eq(SmsMessageContent::getOrderNo, id)
-            .orderByAsc(SmsMessageContent::getContentSort);
+        contentWrapper.eq(SmsMessageContent::getOrderNo, id).orderByAsc(SmsMessageContent::getContentSort);
         List<SmsMessageContent> contentList = smsMessageContentMapper.selectList(contentWrapper);
-        List<String> messageContentList = contentList.stream()
-            .map(SmsMessageContent::getContent)
-            .toList();
+        List<String> messageContentList = contentList.stream().map(SmsMessageContent::getContent).toList();
 
         // 查询手机号列表
         LambdaQueryWrapper<SmsPhoneRecord> phoneWrapper = new LambdaQueryWrapper<>();
-        phoneWrapper.eq(SmsPhoneRecord::getOrderNo, id)
-            .orderByAsc(SmsPhoneRecord::getCreateTime);
+        phoneWrapper.eq(SmsPhoneRecord::getOrderNo, id).orderByAsc(SmsPhoneRecord::getCreateTime);
         List<SmsPhoneRecord> phoneRecordList = smsPhoneRecordMapper.selectList(phoneWrapper);
-        List<String> phoneNumberList = phoneRecordList.stream()
-            .map(SmsPhoneRecord::getPhoneNumber)
-            .toList();
+        List<String> phoneNumberList = phoneRecordList.stream().map(SmsPhoneRecord::getPhoneNumber).toList();
 
         SmsOrderDetailVO detailVO = new SmsOrderDetailVO();
         detailVO.setId(order.getId());
@@ -272,32 +245,39 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         }
 
         order.setStatus(OrderStatusEnum.CANCELLED.getValue());
-        return this.updateById(order);
+        this.updateById(order);
+
+        //将订单中的手机号记录取消
+        LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SmsPhoneRecord::getOrderNo, order.getId()).eq(SmsPhoneRecord::getSendStatus, 0); // 只更新待发送的记录
+
+        List<SmsPhoneRecord> phoneRecordList = smsPhoneRecordMapper.selectList(wrapper);
+        for (SmsPhoneRecord record : phoneRecordList) {
+            record.setSendStatus(-2);
+            smsPhoneRecordMapper.updateById(record);
+        }
+        return true;
     }
 
     @Override
     public List<SmsOrder> getPendingOrdersToExecute() {
         // 查询状态为待发送且预约时间小于等于当前时间的订单
         LambdaQueryWrapper<SmsOrder> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsOrder::getStatus, OrderStatusEnum.PENDING.getValue())
-            .le(SmsOrder::getScheduledTime, LocalDateTime.now())
-            .orderByAsc(SmsOrder::getScheduledTime);
+        wrapper.eq(SmsOrder::getStatus, OrderStatusEnum.PENDING.getValue()).le(SmsOrder::getScheduledTime, LocalDateTime.now()).orderByAsc(SmsOrder::getScheduledTime);
         return this.list(wrapper);
     }
 
     @Override
     public List<SmsPhoneRecord> getPhoneRecordsByOrderId(Long orderId) {
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsPhoneRecord::getOrderNo, orderId)
-            .orderByAsc(SmsPhoneRecord::getCreateTime);
+        wrapper.eq(SmsPhoneRecord::getOrderNo, orderId).orderByAsc(SmsPhoneRecord::getCreateTime);
         return smsPhoneRecordMapper.selectList(wrapper);
     }
 
     @Override
     public List<SmsMessageContent> getMessageContentsByOrderId(Long orderId) {
         LambdaQueryWrapper<SmsMessageContent> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsMessageContent::getOrderNo, orderId)
-            .orderByAsc(SmsMessageContent::getContentSort);
+        wrapper.eq(SmsMessageContent::getOrderNo, orderId).orderByAsc(SmsMessageContent::getContentSort);
         return smsMessageContentMapper.selectList(wrapper);
     }
 

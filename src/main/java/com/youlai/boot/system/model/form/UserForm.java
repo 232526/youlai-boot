@@ -58,4 +58,11 @@ public class UserForm {
     @NotEmpty(message = "用户角色不能为空")
     private List<Long> roleIds;
 
+    @Schema(description = "用户余额")
+    private Double price;
+
+    @Schema(description = "币种类型")
+    private String coin;
+
+
 }
