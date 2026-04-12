@@ -15,6 +15,9 @@
         u.avatar,
         u.STATUS,
         u.email,
+        u.coin,
+        u.price,
+        u.unit_price,
         d.NAME AS dept_name,
         GROUP_CONCAT( r.NAME ) AS roleNames,
         u.create_time

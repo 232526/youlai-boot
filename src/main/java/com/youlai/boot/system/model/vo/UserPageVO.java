@@ -2,9 +2,11 @@ package com.youlai.boot.system.model.vo;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户分页视图对象
@@ -46,9 +48,18 @@ public class UserPageVO {
     @Schema(description="角色名称，多个使用英文逗号(,)分割")
     private String roleNames;
 
+    @Schema(description = "每条短信单价")
+    private Double unitPrice;
+
+    @Schema(description = "用户余额")
+    private Double price;
+
+    @Schema(description = "币种类型")
+    private String coin;
+
+
     @Schema(description="创建时间")
     @JsonFormat(pattern = "yyyy/MM/dd HH:mm")
     private LocalDateTime createTime;
 }
 
- 
