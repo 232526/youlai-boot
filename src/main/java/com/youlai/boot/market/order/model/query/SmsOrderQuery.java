@@ -25,4 +25,10 @@ public class SmsOrderQuery extends BaseQuery {
     @Schema(description = "订单状态：0-待发送，1-发送中，2-已完成，3-发送失败，4-已取消")
     private Integer status;
 
+    @Schema(description = "开始日期")
+    private String startDate;
+
+    @Schema(description = "结束日期")
+    private String endDate;
+
 }

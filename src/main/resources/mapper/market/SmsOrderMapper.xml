@@ -34,6 +34,12 @@
             <if test="queryParams.status != null">
                 AND so.status = #{queryParams.status}
             </if>
+            <if test="queryParams.startDate != null and queryParams.startDate != ''">
+                AND DATE(so.create_time) &gt;= #{queryParams.startDate}
+            </if>
+            <if test="queryParams.endDate != null and queryParams.endDate != ''">
+                AND DATE(so.create_time) &lt;= #{queryParams.endDate}
+            </if>
             <!-- 数据权限：非管理员只能查看自己的订单 -->
             <if test="!isRoot">
                 AND so.create_by = #{currentUserId}
