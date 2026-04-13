@@ -21,6 +21,7 @@ import com.youlai.boot.framework.security.token.TokenManager;
 import com.youlai.boot.framework.security.util.SecurityUtils;
 import com.youlai.boot.system.converter.UserConverter;
 import com.youlai.boot.system.enums.DictCodeEnum;
+import com.youlai.boot.system.mapper.ChannelMapper;
 import com.youlai.boot.system.mapper.UserMapper;
 import com.youlai.boot.system.model.vo.CurrentUserVO;
 import com.youlai.boot.system.model.vo.UserExportVO;
@@ -77,6 +78,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     private final UserConverter userConverter;
 
+    private final ChannelMapper channelMapper;
+
 
     /**
      * 获取用户分页列表
@@ -96,7 +99,51 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         queryParams.setIsRoot(isRoot);
 
         // 查询数据
-        return this.baseMapper.getUserPage(page, queryParams);
+        Page<UserPageVO> userPage = this.baseMapper.getUserPage(page, queryParams);
+        List<UserPageVO> records = userPage.getRecords();
+
+        if (CollectionUtil.isNotEmpty(records)) {
+            // 收集所有的渠道ID
+            List<Integer> smsChannelIds = records.stream()
+                .map(UserPageVO::getSmsChannelId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+            List<Integer> wsChannelIds = records.stream()
+                .map(UserPageVO::getWsChannelId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+            // 合并所有需要查询的渠道ID
+            Set<Integer> allChannelIds = new HashSet<>();
+            allChannelIds.addAll(smsChannelIds);
+            allChannelIds.addAll(wsChannelIds);
+
+            // 批量查询渠道信息
+            Map<Integer, String> channelNicknameMap = new HashMap<>();
+            if (!allChannelIds.isEmpty()) {
+                channelNicknameMap = channelMapper.selectBatchIds(allChannelIds).stream()
+                    .collect(Collectors.toMap(
+                        channel -> channel.getId().intValue(),
+                        channel -> channel.getNickname(),
+                        (v1, v2) -> v1
+                    ));
+            }
+
+            // 填充渠道昵称
+            final Map<Integer, String> finalChannelNicknameMap = channelNicknameMap;
+            records.forEach(record -> {
+                if (record.getSmsChannelId() != null) {
+                    record.setSmsChannel(finalChannelNicknameMap.get(record.getSmsChannelId()));
+                }
+                if (record.getWsChannelId() != null) {
+                    record.setWsChannel(finalChannelNicknameMap.get(record.getWsChannelId()));
+                }
+            });
+        }
+
+        return userPage;
     }
 
     /**
