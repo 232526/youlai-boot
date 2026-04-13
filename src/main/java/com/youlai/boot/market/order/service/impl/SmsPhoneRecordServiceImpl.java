@@ -350,7 +350,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             Double currentBalance = user.getPrice() != null ? user.getPrice() : 0.0;
 
             // 计算总费用：单价 × 成功发送数量（使用BigDecimal避免精度丢失）
-            BigDecimal unitPrice = user.getUnitPrice() != null ? BigDecimal.valueOf(user.getUnitPrice()) : BigDecimal.ZERO;
+            BigDecimal unitPrice = user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : BigDecimal.ZERO;
             BigDecimal totalAmount = unitPrice.multiply(BigDecimal.valueOf(successRecords.size()));
             double amountDouble = totalAmount.doubleValue();
 

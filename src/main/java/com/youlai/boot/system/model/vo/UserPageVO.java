@@ -49,7 +49,16 @@ public class UserPageVO {
     private String roleNames;
 
     @Schema(description = "每条短信单价")
-    private Double unitPrice;
+    private Double smsUnitPrice;
+
+    @Schema(description = "短信上游")
+    private String smsChannel;
+
+    @Schema(description = "每条社区单价")
+    private Double wsUnitPrice;
+
+    @Schema(description = "社群上游")
+    private String wsChannel;
 
     @Schema(description = "用户余额")
     private Double price;

@@ -17,7 +17,7 @@
         u.email,
         u.coin,
         u.price,
-        u.unit_price,
+        u.sms_unit_price,
         d.NAME AS dept_name,
         GROUP_CONCAT( r.NAME ) AS roleNames,
         u.create_time
@@ -97,6 +97,10 @@
         <!--        <result property="deptId" column="dept_id" jdbcType="BIGINT"/>-->
         <result property="price" column="price" jdbcType="DECIMAL"/>
         <result property="coin" column="coin" jdbcType="VARCHAR"/>
+        <result property="smsUnitPrice" column="sms_unit_price" jdbcType="DECIMAL"/>
+        <result property="wsUnitPrice" column="ws_unit_price" jdbcType="DECIMAL"/>
+        <result property="wsChannelId" column="ws_channel_id" jdbcType="BIGINT"/>
+        <result property="smsChannelId" column="sms_channel_id" jdbcType="BIGINT"/>
 
         <collection
             property="roleIds"
@@ -116,6 +120,12 @@
                avatar,
                email,
                status,
+               price,
+               coin,
+               sms_unit_price,
+               ws_unit_price,
+               sms_channel_id,
+               ws_channel_id,
                dept_id
         FROM sys_user
         WHERE id = #{userId}

@@ -48,11 +48,18 @@ public class UserForm {
     @Range(min = 0, max = 1, message = "用户状态不正确")
     private Integer status;
 
-//    @Schema(description="部门ID")
-//    private Long deptId;
-
     @Schema(description = "每条短信单价")
-    private Double unitPrice;
+    private Double smsUnitPrice;
+
+    @Schema(description = "短信上游ID")
+    private Integer smsChannelId;
+
+    @Schema(description = "每条社区单价")
+    private Double wsUnitPrice;
+
+    @Schema(description = "社群上游ID")
+    private Integer wsChannelId;
+
 
     @Schema(description = "角色ID集合")
     @NotEmpty(message = "用户角色不能为空")

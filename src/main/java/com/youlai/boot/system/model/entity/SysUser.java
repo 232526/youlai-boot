@@ -2,7 +2,6 @@ package com.youlai.boot.system.model.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.youlai.boot.common.base.BaseEntity;
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -87,5 +86,21 @@ public class SysUser extends BaseEntity {
     /**
      * 每条短信单价
      */
-    private Double unitPrice;
+    private Double smsUnitPrice;
+
+    /**
+     * 短信上游ID
+     */
+    private Integer smsChannelId;
+
+    /**
+     * 每条社区单价
+     */
+    private Double wsUnitPrice;
+
+    /**
+     * 社群ID
+     */
+    private Integer wsChannelId;
+
 }
