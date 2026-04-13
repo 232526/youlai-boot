@@ -48,4 +48,15 @@ public class SmsChannelContext {
     public List<String> getAvailableChannels() {
         return strategyMap.keySet().stream().toList();
     }
+
+    /**
+     * 查询指定渠道的账户余额
+     *
+     * @param channelCode 渠道标识
+     * @return 余额结果
+     */
+    public SmsChannelStrategy.BalanceResult queryBalance(String channelCode) {
+        SmsChannelStrategy strategy = getStrategy(channelCode);
+        return strategy.queryBalance();
+    }
 }

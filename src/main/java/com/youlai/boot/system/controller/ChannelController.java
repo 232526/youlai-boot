@@ -6,6 +6,7 @@ import com.youlai.boot.common.enums.LogModuleEnum;
 import com.youlai.boot.common.result.PageResult;
 import com.youlai.boot.common.annotation.Log;
 import com.youlai.boot.system.model.query.ChannelQuery;
+import com.youlai.boot.system.model.vo.ChannelAdminVO;
 import com.youlai.boot.system.model.vo.ChannelVO;
 import com.youlai.boot.system.service.ChannelService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,6 +49,15 @@ public class ChannelController {
     @Log(module = LogModuleEnum.OTHER, value = ActionTypeEnum.LIST)
     public PageResult<ChannelVO> wsPage(@ParameterObject ChannelQuery queryParams) {
         IPage<ChannelVO> result = channelService.pageByType("ws", queryParams);
+        return PageResult.success(result);
+    }
+
+    @Operation(summary = "渠道管理分页列表")
+    @GetMapping("/list")
+    @PreAuthorize("@ss.hasPerm('sys:channel:list')")
+    @Log(module = LogModuleEnum.OTHER, value = ActionTypeEnum.LIST)
+    public PageResult<ChannelAdminVO> adminPage(@ParameterObject ChannelQuery queryParams) {
+        IPage<ChannelAdminVO> result = channelService.pageAdmin(queryParams);
         return PageResult.success(result);
     }
 }

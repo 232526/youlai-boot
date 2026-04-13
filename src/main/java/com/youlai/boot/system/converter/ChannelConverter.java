@@ -2,6 +2,7 @@ package com.youlai.boot.system.converter;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.youlai.boot.system.model.entity.Channel;
+import com.youlai.boot.system.model.vo.ChannelAdminVO;
 import com.youlai.boot.system.model.vo.ChannelVO;
 import org.mapstruct.Mapper;
 
@@ -17,4 +18,8 @@ public interface ChannelConverter {
     Page<ChannelVO> toPageVo(Page<Channel> page);
 
     ChannelVO toVo(Channel entity);
+
+    Page<ChannelAdminVO> toPageAdminVo(Page<Channel> page);
+
+    ChannelAdminVO toAdminVo(Channel entity);
 }

@@ -188,10 +188,10 @@ public class SmsOrderScheduleJob {
                     // 更新状态报告
                     if (reportResult != null && reportResult.success()) {
                         smsPhoneRecordService.updateReportResult(reportResult);
-                        
+
                         // 检查是否所有记录都已完成，更新订单状态
                         smsPhoneRecordService.checkAndUpdateOrderStatus(orderNo);
-                        
+
                         log.info("订单 {} 状态报告更新成功", orderNo);
                     } else {
                         log.warn("查询订单 {} 状态报告失败，错误信息: {}", orderNo, reportResult != null ? reportResult.message() : "未知错误");
@@ -207,6 +207,61 @@ public class SmsOrderScheduleJob {
             log.error("状态报告查询任务执行异常", e);
         }
     }
+
+
+    /**
+     * 定时查询并更新余额
+     */
+    @PostConstruct
+    @Scheduled(fixedDelay = 120000)
+    public void queryAndUpdatePrice() {
+        log.debug("开始执行余额查询任务...");
+
+        try {
+            // 获取所有可用的短信渠道
+            List<String> availableChannels = smsChannelContext.getAvailableChannels();
+
+            if (availableChannels == null || availableChannels.isEmpty()) {
+                log.debug("当前没有可用的短信渠道");
+                return;
+            }
+
+            log.info("发现 {} 个短信渠道，开始查询余额", availableChannels.size());
+
+            // 遍历每个渠道查询余额
+            for (String channelCode : availableChannels) {
+                try {
+                    log.info("查询渠道 {} 的账户余额", channelCode);
+
+                    // 调用渠道策略查询余额
+                    SmsChannelStrategy.BalanceResult balanceResult = smsChannelContext.queryBalance(channelCode);
+
+                    if (balanceResult != null && balanceResult.success()) {
+                        log.info("渠道 {} 余额查询成功 - 余额: {} {}, 消息: {}",
+                            channelCode,
+                            balanceResult.balance(),
+                            balanceResult.currency(),
+                            balanceResult.message()
+                        );
+
+                    } else {
+                        log.warn("渠道 {} 余额查询失败 - 错误信息: {}",
+                            channelCode,
+                            balanceResult != null ? balanceResult.message() : "未知错误"
+                        );
+                    }
+                } catch (Exception e) {
+                    log.error("查询渠道 {} 余额失败", channelCode, e);
+                }
+            }
+
+            log.info("余额查询任务执行完成，共查询 {} 个渠道", availableChannels.size());
+
+        } catch (Exception e) {
+            log.error("余额查询任务执行异常", e);
+        }
+    }
+
 
     /**
      * 获取发送号码

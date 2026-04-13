@@ -43,6 +43,13 @@ public interface SmsChannelStrategy {
     SmsReportResult queryReport(List<String> msgIds);
 
     /**
+     * 查询账户余额
+     *
+     * @return 余额结果
+     */
+    BalanceResult queryBalance();
+
+    /**
      * 短信发送结果
      */
     record SmsSendResult(
@@ -91,5 +98,18 @@ public interface SmsChannelStrategy {
             BigDecimal settleUnitPrice
         ) {
         }
+    }
+
+    /**
+     * 账户余额查询结果
+     */
+    record BalanceResult(
+        boolean success,
+        String message,
+        BigDecimal balance,
+        BigDecimal gift,
+        BigDecimal credit,
+        String currency
+    ) {
     }
 }
