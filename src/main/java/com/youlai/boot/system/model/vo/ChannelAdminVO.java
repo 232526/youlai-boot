@@ -35,7 +35,6 @@ public class ChannelAdminVO implements Serializable {
     @Schema(description = "备注")
     private String remark;
 
-
     /**
      * 余额
      */
@@ -61,6 +60,10 @@ public class ChannelAdminVO implements Serializable {
      */
     @Schema(description = "币总")
     private String coin;
+
+
+    @Schema(description = "每条单价")
+    private Double unitPrice;
 
 
     /**

@@ -72,6 +72,11 @@ public class Channel {
     private String remark;
 
     /**
+     * 每条单价
+     */
+    private Double unitPrice;
+
+    /**
      * 更新时间
      */
     @JsonInclude(value = JsonInclude.Include.NON_NULL)
