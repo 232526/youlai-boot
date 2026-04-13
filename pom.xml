@@ -326,7 +326,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>com.youlai.boot.YouLaiBootApplication</mainClass>
+                            <mainClass>com.youlai.boot.boot.YouLaiBootApplication</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
