@@ -37,6 +37,9 @@ public class UserTransactionPageVO {
     @Schema(description = "交易金额")
     private BigDecimal amount;
 
+    @Schema(description = "交易前账户余额")
+    private BigDecimal preBalance;
+
     @Schema(description = "交易后账户余额")
     private BigDecimal balance;
 

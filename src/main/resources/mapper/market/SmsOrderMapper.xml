@@ -51,6 +51,7 @@
     <select id="getSmsOrderStatisticsPage" resultType="com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO">
         SELECT
             id,
+            order_no AS orderNo,
             create_by AS userId,
             total_count AS totalCount,
             success_count AS successCount,

@@ -21,8 +21,14 @@ public class SmsOrderStatisticsVO {
     @Schema(description = "订单ID")
     private Long id;
 
+    @Schema(description = "订单编号")
+    private String orderNo;
+
     @Schema(description = "用户ID")
     private Long userId;
+
+    @Schema(description = "用户名称")
+    private String userName;
 
     @Schema(description = "短信条数")
     private Integer totalCount=0;

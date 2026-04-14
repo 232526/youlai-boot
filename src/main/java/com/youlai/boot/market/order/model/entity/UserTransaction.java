@@ -55,6 +55,11 @@ public class UserTransaction implements Serializable {
     private BigDecimal amount;
 
     /**
+     * 交易前账户余额
+     */
+    private BigDecimal preBalance;
+
+    /**
      * 交易后账户余额
      */
     private BigDecimal balance;

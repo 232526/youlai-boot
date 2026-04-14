@@ -77,7 +77,7 @@ public interface SmsOrderService extends IService<SmsOrder> {
      * @param orderId 订单ID
      * @return 手机号记录列表
      */
-    List<SmsPhoneRecord> getPhoneRecordsByOrderId(Long orderId);
+    List<SmsPhoneRecord> getPhoneRecordsByOrderId(String orderId);
 
     /**
      * 根据订单ID获取短信内容列表
@@ -85,6 +85,6 @@ public interface SmsOrderService extends IService<SmsOrder> {
      * @param orderId 订单ID
      * @return 短信内容列表
      */
-    List<SmsMessageContent> getMessageContentsByOrderId(Long orderId);
+    List<SmsMessageContent> getMessageContentsByOrderId(String orderId);
 
 }

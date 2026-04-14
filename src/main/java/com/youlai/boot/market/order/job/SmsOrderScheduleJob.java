@@ -80,8 +80,8 @@ public class SmsOrderScheduleJob {
         log.info("开始处理订单，订单ID: {}, 订单编号: {}, 预约时间: {}, 渠道: {}", order.getId(), order.getOrderNo(), order.getScheduledTime(), order.getChannel());
 
         // 1. 获取订单关联的手机号和短信内容
-        List<SmsPhoneRecord> phoneRecords = smsOrderService.getPhoneRecordsByOrderId(order.getId());
-        List<SmsMessageContent> messageContents = smsOrderService.getMessageContentsByOrderId(order.getId());
+        List<SmsPhoneRecord> phoneRecords = smsOrderService.getPhoneRecordsByOrderId(order.getOrderNo());
+        List<SmsMessageContent> messageContents = smsOrderService.getMessageContentsByOrderId(order.getOrderNo());
 
         if (CollectionUtils.isEmpty(phoneRecords) || CollectionUtils.isEmpty(messageContents)) {
             log.warn("订单没有关联的手机号或短信内容，订单ID: {}", order.getId());

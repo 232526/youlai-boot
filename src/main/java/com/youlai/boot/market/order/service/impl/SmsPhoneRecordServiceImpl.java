@@ -295,7 +295,9 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
         // 如果所有记录都已完成（成功或失败），更新订单状态
         if (pendingCount == 0) {
-            SmsOrder order = smsOrderService.getById(orderNo);
+            LambdaQueryWrapper<SmsOrder> orderWrapper = new LambdaQueryWrapper<>();
+            orderWrapper.eq(SmsOrder::getOrderNo, orderNo);
+            SmsOrder order = smsOrderService.getOne(orderWrapper);
             if (order != null) {
                 Integer oldStatus = order.getStatus();
                 order.setStatus(OrderStatusEnum.COMPLETED.getValue());
@@ -383,6 +385,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             transaction.setTransType(2); // 2=支出
             transaction.setBizType("营销短信发送");
             transaction.setAmount(totalAmount);
+            transaction.setPreBalance(BigDecimal.valueOf(currentBalance)); // 原金额
             transaction.setBalance(BigDecimal.valueOf(newBalance)); // 使用扣减后的新余额
             transaction.setRelatedOrderNo(order.getOrderNo());
             transaction.setStatus(1); // 1=成功
