@@ -30,7 +30,7 @@ public interface SmsPhoneRecordService extends IService<SmsPhoneRecord> {
      * @param sendResult 发送结果
      * @param channelCode 渠道代码
      */
-    void saveSendResult(Long orderNo, SmsChannelStrategy.SmsSendResult sendResult, String channelCode);
+    void saveSendResult(String orderNo, SmsChannelStrategy.SmsSendResult sendResult, String channelCode);
 
     /**
      * 更新短信状态报告
@@ -45,7 +45,7 @@ public interface SmsPhoneRecordService extends IService<SmsPhoneRecord> {
      * @param orderNo 订单编号
      * @param channelCode 渠道代码
      */
-    void queryAndUpdateReport(Long orderNo, String channelCode);
+    void queryAndUpdateReport(String orderNo, String channelCode);
 
     /**
      * 批量更新订单下所有手机号记录的发送失败状态
@@ -54,13 +54,13 @@ public interface SmsPhoneRecordService extends IService<SmsPhoneRecord> {
      * @param channelCode 渠道代码
      * @param failReason 失败原因
      */
-    void updateFailedRecords(Long orderNo, String channelCode, String failReason);
+    void updateFailedRecords(String orderNo, String channelCode, String failReason);
 
     /**
      * 检查并更新订单状态（当所有手机号记录都完成后）
      *
      * @param orderNo 订单编号
      */
-    void checkAndUpdateOrderStatus(Long orderNo);
+    void checkAndUpdateOrderStatus(String orderNo);
 
 }

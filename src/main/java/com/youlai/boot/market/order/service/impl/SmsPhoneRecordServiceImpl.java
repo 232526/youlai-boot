@@ -63,7 +63,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void saveSendResult(Long orderNo, SmsChannelStrategy.SmsSendResult sendResult, String channelCode) {
+    public void saveSendResult(String orderNo, SmsChannelStrategy.SmsSendResult sendResult, String channelCode) {
         if (sendResult == null || CollUtil.isEmpty(sendResult.msgIds())) {
             log.warn("发送结果为空或消息ID列表为空，订单编号: {}", orderNo);
             return;
@@ -163,7 +163,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     }
 
     @Override
-    public void queryAndUpdateReport(Long orderNo, String channelCode) {
+    public void queryAndUpdateReport(String orderNo, String channelCode) {
         // 1. 查询该订单下所有已发送但未收到状态报告的记录
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
@@ -274,7 +274,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void checkAndUpdateOrderStatus(Long orderNo) {
+    public void checkAndUpdateOrderStatus(String orderNo) {
         // 查询订单下所有记录的状态
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo);
@@ -400,7 +400,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void updateFailedRecords(Long orderNo, String channelCode, String failReason) {
+    public void updateFailedRecords(String orderNo, String channelCode, String failReason) {
         // 查询该订单下所有待发送的手机号记录
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)

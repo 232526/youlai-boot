@@ -31,11 +31,6 @@ public class ShareOrder extends BaseEntity {
     private Integer countryId;
 
     /**
-     * 分享Id
-     */
-    private Integer shareId;
-
-    /**
      * 国家名称
      */
     private String countryName;

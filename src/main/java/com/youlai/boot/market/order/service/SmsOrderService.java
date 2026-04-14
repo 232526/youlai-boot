@@ -36,7 +36,7 @@ public interface SmsOrderService extends IService<SmsOrder> {
      * @param formData 订单表单
      * @return 订单ID
      */
-    Long createOrder(SmsOrderForm formData);
+    String createOrder(SmsOrderForm formData);
 
     /**
      * 获取订单详情

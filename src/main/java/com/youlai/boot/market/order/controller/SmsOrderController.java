@@ -49,7 +49,7 @@ public class SmsOrderController {
     @Operation(summary = "获取订单详情")
     @GetMapping("/{id}")
     public Result<SmsOrderDetailVO> getOrderDetail(
-            @Parameter(description = "订单ID") @PathVariable Long id
+        @Parameter(description = "订单ID") @PathVariable Long id
     ) {
         SmsOrderDetailVO detail = smsOrderService.getOrderDetail(id);
         return Result.success(detail);
@@ -58,8 +58,8 @@ public class SmsOrderController {
     @Operation(summary = "创建短信订单")
     @PostMapping
     @Log(module = LogModuleEnum.ORDER, value = ActionTypeEnum.INSERT)
-    public Result<Long> createOrder(@Valid @RequestBody SmsOrderForm formData) {
-        Long orderId = smsOrderService.createOrder(formData);
+    public Result<String> createOrder(@Valid @RequestBody SmsOrderForm formData) {
+        String orderId = smsOrderService.createOrder(formData);
         return Result.success(orderId);
     }
 
@@ -67,7 +67,7 @@ public class SmsOrderController {
     @PutMapping("/{id}/cancel")
     @Log(module = LogModuleEnum.ORDER, value = ActionTypeEnum.UPDATE)
     public Result<Void> cancelOrder(
-            @Parameter(description = "订单ID") @PathVariable Long id
+        @Parameter(description = "订单ID") @PathVariable Long id
     ) {
         boolean result = smsOrderService.cancelOrder(id);
         return Result.judge(result);

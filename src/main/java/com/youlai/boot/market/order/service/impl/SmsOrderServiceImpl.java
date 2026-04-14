@@ -1,6 +1,8 @@
 package com.youlai.boot.market.order.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.io.unit.DataUnit;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -29,10 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -87,13 +86,13 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
             LambdaQueryWrapper<SmsMessageContent> contentWrapper = new LambdaQueryWrapper<>();
             contentWrapper.in(SmsMessageContent::getOrderNo, orderIds);
             List<SmsMessageContent> allContents = smsMessageContentMapper.selectList(contentWrapper);
-            Map<Long, Long> contentCountMap = allContents.stream().collect(Collectors.groupingBy(SmsMessageContent::getOrderNo, Collectors.counting()));
+            Map<String, Long> contentCountMap = allContents.stream().collect(Collectors.groupingBy(SmsMessageContent::getOrderNo, Collectors.counting()));
 
             // 查询每个订单的不重复手机号数量
             LambdaQueryWrapper<SmsPhoneRecord> phoneWrapper = new LambdaQueryWrapper<>();
             phoneWrapper.in(SmsPhoneRecord::getOrderNo, orderIds);
             List<SmsPhoneRecord> allPhones = smsPhoneRecordMapper.selectList(phoneWrapper);
-            Map<Long, Long> phoneCountMap = allPhones.stream().collect(Collectors.groupingBy(SmsPhoneRecord::getOrderNo, Collectors.mapping(SmsPhoneRecord::getPhoneNumber, Collectors.toSet()))).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> (long) entry.getValue().size()));
+            Map<String, Long> phoneCountMap = allPhones.stream().collect(Collectors.groupingBy(SmsPhoneRecord::getOrderNo, Collectors.mapping(SmsPhoneRecord::getPhoneNumber, Collectors.toSet()))).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> (long) entry.getValue().size()));
 
             // 3. 填充数据
             final Map<Long, String> finalUserNameMap = userNameMap;
@@ -107,11 +106,11 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
                 }
 
                 // 填充文本数量
-                Long contentCount = contentCountMap.getOrDefault(record.getId(), 0L);
+                Long contentCount = contentCountMap.getOrDefault(record.getOrderNo(), 0L);
                 record.setContentCount(contentCount.intValue());
 
                 // 填充短信数量（不重复手机号数量 × 文本数量）
-                Long phoneCount = phoneCountMap.getOrDefault(record.getId(), 0L);
+                Long phoneCount = phoneCountMap.getOrDefault(record.getOrderNo(), 0L);
                 record.setSmsCount((int) (phoneCount * contentCount));
             });
         }
@@ -131,7 +130,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long createOrder(SmsOrderForm formData) {
+    public String createOrder(SmsOrderForm formData) {
         // 校验国家是否存在
         Country country = countryMapper.selectById(formData.getCountryId());
         if (country == null) {
@@ -151,7 +150,9 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
 
         // 创建订单
         SmsOrder order = new SmsOrder();
-        order.setOrderNo(generateOrderNo());
+        String orderId = generateOrderNo();
+
+        order.setOrderNo(orderId);
         order.setCountryId(formData.getCountryId());
         order.setCountryName(country.getName());
         order.setHasAreaCode(formData.getHasAreaCode());
@@ -163,7 +164,6 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         order.setRemark(formData.getRemark());
 
         this.save(order);
-        Long orderId = order.getId();
 
         // 保存短信内容
         List<String> messageContentList = formData.getMessageContentList();
@@ -249,7 +249,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
 
         //将订单中的手机号记录取消
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsPhoneRecord::getOrderNo, order.getId()).eq(SmsPhoneRecord::getSendStatus, 0); // 只更新待发送的记录
+        wrapper.eq(SmsPhoneRecord::getOrderNo, order.getOrderNo()).eq(SmsPhoneRecord::getSendStatus, 0); // 只更新待发送的记录
 
         List<SmsPhoneRecord> phoneRecordList = smsPhoneRecordMapper.selectList(wrapper);
         for (SmsPhoneRecord record : phoneRecordList) {
@@ -285,9 +285,9 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
      * 生成订单编号
      */
     private String generateOrderNo() {
-        String timestamp = String.valueOf(System.currentTimeMillis());
+        String date = DateUtil.format(new Date(), "yyyyMMdd");
         String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        return "ORD" + timestamp + uuid;
+        return "ORD" + date + uuid;
     }
 
     /**

@@ -32,7 +32,7 @@ public class SmsPhoneRecord implements Serializable {
     /**
      * 关联订单ID
      */
-    private Long orderNo;
+    private String orderNo;
 
     /**
      * 关联短信内容ID（内容-号码多对多场景用，单内容可NULL）

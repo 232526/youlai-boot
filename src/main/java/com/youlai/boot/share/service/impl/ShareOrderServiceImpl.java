@@ -1,5 +1,6 @@
 package com.youlai.boot.share.service.impl;
 
+import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,14 +49,14 @@ public class ShareOrderServiceImpl extends ServiceImpl<ShareOrderMapper, ShareOr
         // 数据权限：非管理员只能查看自己的订单
         Long currentUserId = SecurityUtils.getUserId();
         boolean isRoot = SecurityUtils.isRoot();
-        
+
         Page<ShareOrderPageVO> page = new Page<>(queryParams.getPageNum(), queryParams.getPageSize());
         return shareOrderMapper.getShareOrderPage(page, queryParams, currentUserId, isRoot);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long createOrder(ShareOrderForm formData) {
+    public String createOrder(ShareOrderForm formData) {
         // 校验国家是否存在
         Country country = countryMapper.selectById(formData.getCountryId());
         if (country == null) {
@@ -75,10 +77,10 @@ public class ShareOrderServiceImpl extends ServiceImpl<ShareOrderMapper, ShareOr
         }
 
         // 创建订单
+        String orderNo = generateOrderNo();
         ShareOrder order = new ShareOrder();
-        order.setOrderNo(generateOrderNo());
+        order.setOrderNo(orderNo);
         order.setCountryId(formData.getCountryId());
-        order.setShareId(formData.getShareId());
         order.setCountryName(country.getName());
         order.setHasAreaCode(formData.getHasAreaCode());
         order.setScheduledTime(scheduledTime);
@@ -92,14 +94,13 @@ public class ShareOrderServiceImpl extends ServiceImpl<ShareOrderMapper, ShareOr
         order.setRemark(formData.getRemark());
 
         this.save(order);
-        Long orderId = order.getId();
 
         // 保存短信内容
         List<String> messageContentList = formData.getMessageContentList();
         List<Long> contentIds = new java.util.ArrayList<>();
         for (int i = 0; i < messageContentList.size(); i++) {
             ShareContent content = new ShareContent();
-            content.setOrderNo(orderId);
+            content.setOrderNo(orderNo);
             content.setContent(messageContentList.get(i));
             content.setContentSort(i);
             shareContentMapper.insert(content);
@@ -111,7 +112,7 @@ public class ShareOrderServiceImpl extends ServiceImpl<ShareOrderMapper, ShareOr
         for (String phoneNumber : phoneNumberList) {
             for (Long contentId : contentIds) {
                 SharePhoneRecord record = new SharePhoneRecord();
-                record.setOrderNo(orderId);
+                record.setOrderNo(orderNo);
                 record.setContentId(contentId);
                 record.setPhoneNumber(phoneNumber);
                 record.setSendStatus(0); // 待发送
@@ -119,7 +120,7 @@ public class ShareOrderServiceImpl extends ServiceImpl<ShareOrderMapper, ShareOr
             }
         }
 
-        return orderId;
+        return orderNo;
     }
 
     @Override
@@ -151,7 +152,6 @@ public class ShareOrderServiceImpl extends ServiceImpl<ShareOrderMapper, ShareOr
         detailVO.setId(order.getId());
         detailVO.setOrderNo(order.getOrderNo());
         detailVO.setCountryId(order.getCountryId());
-        detailVO.setShareId(order.getShareId());
         detailVO.setCountryName(order.getCountryName());
         detailVO.setHasAreaCode(order.getHasAreaCode());
         detailVO.setScheduledTime(order.getScheduledTime());
@@ -191,9 +191,9 @@ public class ShareOrderServiceImpl extends ServiceImpl<ShareOrderMapper, ShareOr
      * 生成订单编号
      */
     private String generateOrderNo() {
-        String timestamp = String.valueOf(System.currentTimeMillis());
+        String date = DateUtil.format(new Date(), "yyyyMMdd");
         String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        return "SHR" + timestamp + uuid;
+        return "SHR" + date + uuid;
     }
 
     /**

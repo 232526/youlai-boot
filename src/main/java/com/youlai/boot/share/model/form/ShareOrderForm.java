@@ -23,7 +23,7 @@ public class ShareOrderForm {
     private Integer countryId;
 
     @Schema(description = "分享ID")
-    private Integer shareId;
+    private String shareId;
 
     @Schema(description = "是否携带区号：0-否，1-是")
     @NotNull(message = "请选择是否携带区号")

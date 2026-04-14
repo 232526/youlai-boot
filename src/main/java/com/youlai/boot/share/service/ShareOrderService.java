@@ -30,7 +30,7 @@ public interface ShareOrderService extends IService<ShareOrder> {
      * @param formData 订单表单
      * @return 订单ID
      */
-    Long createOrder(ShareOrderForm formData);
+    String createOrder(ShareOrderForm formData);
 
     /**
      * 获取订单详情

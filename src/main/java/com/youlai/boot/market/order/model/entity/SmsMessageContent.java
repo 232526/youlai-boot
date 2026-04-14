@@ -31,7 +31,7 @@ public class SmsMessageContent implements Serializable {
     /**
      * 关联订单ID
      */
-    private Long orderNo;
+    private String orderNo;
 
     /**
      * 短信内容

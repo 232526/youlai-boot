@@ -43,7 +43,7 @@ public class ShareOrderController {
     @Operation(summary = "获取订单详情")
     @GetMapping("/{id}")
     public Result<ShareOrderDetailVO> getOrderDetail(
-            @Parameter(description = "订单ID") @PathVariable Long id
+        @Parameter(description = "订单ID") @PathVariable Long id
     ) {
         ShareOrderDetailVO detail = shareOrderService.getOrderDetail(id);
         return Result.success(detail);
@@ -52,8 +52,8 @@ public class ShareOrderController {
     @Operation(summary = "创建社群订单")
     @PostMapping
     @Log(module = LogModuleEnum.ORDER, value = ActionTypeEnum.INSERT)
-    public Result<Long> createOrder(@Valid @RequestBody ShareOrderForm formData) {
-        Long orderId = shareOrderService.createOrder(formData);
+    public Result<String> createOrder(@Valid @RequestBody ShareOrderForm formData) {
+        String orderId = shareOrderService.createOrder(formData);
         return Result.success(orderId);
     }
 
@@ -61,7 +61,7 @@ public class ShareOrderController {
     @PutMapping("/{id}/cancel")
     @Log(module = LogModuleEnum.ORDER, value = ActionTypeEnum.UPDATE)
     public Result<Void> cancelOrder(
-            @Parameter(description = "订单ID") @PathVariable Long id
+        @Parameter(description = "订单ID") @PathVariable Long id
     ) {
         boolean result = shareOrderService.cancelOrder(id);
         return Result.judge(result);

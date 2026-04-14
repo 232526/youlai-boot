@@ -113,15 +113,15 @@ public class SmsOrderScheduleJob {
             boolean updated = smsOrderService.updateById(order);
 
             if (updated) {
-                log.info("订单状态已更新为发送中，订单ID: {}, 消息IDs: {}", order.getId(), sendResult.msgIds());
+                log.info("订单状态已更新为发送中，订单ID: {}, 消息IDs: {}", order.getOrderNo(), sendResult.msgIds());
 
                 // 保存消息ID到发送记录表
-                smsPhoneRecordService.saveSendResult(order.getId(), sendResult, channelCode);
+                smsPhoneRecordService.saveSendResult(order.getOrderNo(), sendResult, channelCode);
             } else {
-                log.warn("订单状态更新失败，订单ID: {}", order.getId());
+                log.warn("订单状态更新失败，订单ID: {}", order.getOrderNo());
             }
         } else {
-            log.error("短信发送失败，订单ID: {}, 错误信息: {}", order.getId(), sendResult.message());
+            log.error("短信发送失败，订单ID: {}, 错误信息: {}", order.getOrderNo(), sendResult.message());
             // 更新订单状态为发送失败，并保存失败原因
             order.setStatus(OrderStatusEnum.FAILED.getValue());
             order.setFailMsg(sendResult.failReason() != null ? sendResult.failReason() : sendResult.message());
@@ -129,7 +129,7 @@ public class SmsOrderScheduleJob {
 
             // 更新该订单下所有手机号记录的状态为发送失败
             String failReason = sendResult.failReason() != null ? sendResult.failReason() : sendResult.message();
-            smsPhoneRecordService.updateFailedRecords(order.getId(), channelCode, failReason);
+            smsPhoneRecordService.updateFailedRecords(order.getOrderNo(), channelCode, failReason);
         }
     }
 
@@ -168,7 +168,7 @@ public class SmsOrderScheduleJob {
                     }
 
                     SmsPhoneRecord firstRecord = records.get(0);
-                    Long orderNo = firstRecord.getOrderNo();
+                    String orderNo = firstRecord.getOrderNo();
                     String channelCode = firstRecord.getChannel() != null ? firstRecord.getChannel() : "ONBUKA";
 
                     // 提取该组的所有msgId
