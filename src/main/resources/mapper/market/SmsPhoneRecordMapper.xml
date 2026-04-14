@@ -22,7 +22,7 @@
         r.pay_amount,
         r.currency,
         r.charge_count,
-        r.sms_unit_price,
+        r.unit_price,
         r.me_pay_amount
         FROM sms_phone_record r
         LEFT JOIN sms_content c ON r.content_id = c.content_id
