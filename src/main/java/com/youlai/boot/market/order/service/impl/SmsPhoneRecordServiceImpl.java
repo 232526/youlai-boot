@@ -49,6 +49,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     private final SmsOrderService smsOrderService;
     private final SmsChannelContext smsChannelContext;
     private final UserTransactionService userTransactionService;
+    private final com.youlai.boot.system.service.UserService userService;
     private final UserMapper userMapper;
 
     @Override
@@ -125,6 +126,9 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 continue;
             }
 
+            //获取用户信息（使用缓存）
+            SysUser user = userService.getUserById(record.getCreateBy());
+
             // 更新状态报告信息
             LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
             updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId())
@@ -136,14 +140,19 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 updateWrapper.set(SmsPhoneRecord::getSendStatus, sendStatus);
             }
 
-            String failReason = getStatusDescription(status.status());
-            if (StrUtil.isNotBlank(failReason)) {
-                updateWrapper.set(SmsPhoneRecord::getFailReason, failReason);
+            String statusDesc = status.statusDesc();
+            if (StrUtil.isNotBlank(statusDesc)) {
+                updateWrapper.set(SmsPhoneRecord::getFailReason, statusDesc);
             }
 
             // 更新费用详情
             SmsChannelStrategy.SmsReportResult.PriceDetail priceDetail = status.priceDetail();
             if (priceDetail != null) {
+                // 使用 BigDecimal 计算外部费用，避免精度丢失
+                BigDecimal outUnitPrice = user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : BigDecimal.ZERO;
+                BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.ZERO;
+                BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
+                
                 updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount())
                     .set(SmsPhoneRecord::getCurrency, priceDetail.currency())
                     .set(SmsPhoneRecord::getChargeCount, priceDetail.chargeCount())
@@ -152,6 +161,8 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                     .set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay())
                     .set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency())
                     .set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay())
+                    .set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice())
+                    .set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue())
                     .set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
             }
 
@@ -341,8 +352,8 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 return;
             }
 
-            // 查询用户当前余额
-            SysUser user = userMapper.selectById(userId);
+            // 查询用户当前余额（使用缓存）
+            SysUser user = userService.getUserById(userId);
             if (user == null) {
                 log.warn("订单 {} 对应的用户不存在，userId: {}", order.getOrderNo(), userId);
                 return;

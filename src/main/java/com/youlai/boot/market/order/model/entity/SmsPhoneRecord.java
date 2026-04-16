@@ -153,4 +153,17 @@ public class SmsPhoneRecord implements Serializable {
     @TableLogic
     private Integer isDeleted;
 
+
+    /**
+     * 报价单价
+     */
+    private BigDecimal outUnitPrice;
+
+
+    /**
+     * 总费用
+     */
+    private BigDecimal outPayAmount;
+
+
 }

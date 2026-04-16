@@ -193,4 +193,12 @@ public interface UserService extends IService<SysUser> {
         return getAuthInfoByMobile(mobile);
     }
 
+    /**
+     * 根据用户ID获取用户信息（带缓存，缓存1分钟）
+     *
+     * @param userId 用户ID
+     * @return {@link SysUser} 用户信息
+     */
+    SysUser getUserById(Long userId);
+
 }

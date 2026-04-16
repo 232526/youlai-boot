@@ -103,4 +103,11 @@ public class SysUser extends BaseEntity {
      */
     private Integer wsChannelId;
 
+
+    /**
+     * 反转率
+     */
+    private Double flipRate;
+
+
 }

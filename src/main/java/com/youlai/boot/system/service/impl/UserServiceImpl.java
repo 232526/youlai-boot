@@ -70,7 +70,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     private final MailService mailService;
 
-    private final StringRedisTemplate redisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
+
+    private final org.springframework.data.redis.core.RedisTemplate<String, Object> redisTemplate;
 
     private final TokenManager tokenManager;
 
@@ -515,7 +517,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (result) {
             // 缓存验证码，5分钟有效，用于更换手机号校验
             String redisCacheKey = StrUtil.format(RedisConstants.Captcha.MOBILE_CODE, mobile);
-            redisTemplate.opsForValue().set(redisCacheKey, code, 5, TimeUnit.MINUTES);
+            stringRedisTemplate.opsForValue().set(redisCacheKey, code, 5, TimeUnit.MINUTES);
         }
         return result;
     }
@@ -546,7 +548,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         String cacheKey = StrUtil.format(RedisConstants.Captcha.MOBILE_CODE, mobile);
 
-        String cachedVerifyCode = redisTemplate.opsForValue().get(cacheKey);
+        String cachedVerifyCode = stringRedisTemplate.opsForValue().get(cacheKey);
 
         if (StrUtil.isBlank(cachedVerifyCode)) {
             throw new BusinessException("验证码已过期");
@@ -563,7 +565,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             throw new BusinessException("手机号已被其他账号绑定");
         }
 
-        redisTemplate.delete(cacheKey);
+        stringRedisTemplate.delete(cacheKey);
 
         // 更新手机号码
         return this.update(
@@ -597,7 +599,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         mailService.sendMail(email, "邮箱验证码", "您的验证码为：" + code + "，请在5分钟内使用");
         // 缓存验证码，5分钟有效，用于更换邮箱校验
         String redisCacheKey = StrUtil.format(RedisConstants.Captcha.EMAIL_CODE, email);
-        redisTemplate.opsForValue().set(redisCacheKey, code, 5, TimeUnit.MINUTES);
+        stringRedisTemplate.opsForValue().set(redisCacheKey, code, 5, TimeUnit.MINUTES);
     }
 
     /**
@@ -626,7 +628,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         // 获取缓存的验证码
         String email = form.getEmail();
         String redisCacheKey = StrUtil.format(RedisConstants.Captcha.EMAIL_CODE, email);
-        String cachedVerifyCode = redisTemplate.opsForValue().get(redisCacheKey);
+        String cachedVerifyCode = stringRedisTemplate.opsForValue().get(redisCacheKey);
 
         if (StrUtil.isBlank(cachedVerifyCode)) {
             throw new BusinessException("验证码已过期");
@@ -644,7 +646,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             throw new BusinessException("邮箱已被其他账号绑定");
         }
 
-        redisTemplate.delete(redisCacheKey);
+        stringRedisTemplate.delete(redisCacheKey);
 
         // 更新邮箱地址
         return this.update(
@@ -725,6 +727,39 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             .eq(SysUser::getStatus, 1)
         );
         return userConverter.toOptions(list);
+    }
+
+    /**
+     * 根据用户ID获取用户信息
+     *
+     * @param userId 用户ID
+     * @return {@link SysUser} 用户信息
+     */
+    @Override
+    public SysUser getUserById(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+
+        String cacheKey = RedisConstants.System.USER_INFO.replace("{}", userId.toString());
+
+        // 先从缓存中获取
+        Object cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached instanceof SysUser) {
+            log.debug("从缓存中获取用户信息，userId: {}", userId);
+            return (SysUser) cached;
+        }
+
+        // 缓存中没有，从数据库查询
+        SysUser user = this.getById(userId);
+
+        // 存入缓存，设置1分钟过期时间
+        if (user != null) {
+            redisTemplate.opsForValue().set(cacheKey, user, 30, TimeUnit.SECONDS);
+            log.debug("用户信息已缓存，userId: {}", userId);
+        }
+
+        return user;
     }
 
 

@@ -58,6 +58,7 @@ public interface RedisConstants {
     interface System {
         String CONFIG = "system:config";                 // 系统配置
         String ROLE_PERMS = "system:role:perms"; // 系统角色和权限映射
+        String USER_INFO = "system:user:{}";             // 用户信息（缓存1分钟）
     }
 
 }
