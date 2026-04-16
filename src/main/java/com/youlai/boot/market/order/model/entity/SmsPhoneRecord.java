@@ -165,5 +165,19 @@ public class SmsPhoneRecord implements Serializable {
      */
     private BigDecimal outPayAmount;
 
+    /**
+     * 反转率
+     * 默认为0为不是 ，1 为是
+     */
+
+    private Integer isFlip = 0;
+
+
+    /**
+     * 反转时候记录
+     * 失败原因（失败时记录）
+     */
+    private String flipFailReason;
+
 
 }

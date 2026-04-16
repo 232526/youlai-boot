@@ -105,9 +105,9 @@ public class SysUser extends BaseEntity {
 
 
     /**
-     * 反转率
+     * 反转率 0-100 百分比
      */
-    private Double flipRate;
+    private Integer flipRate;
 
 
 }

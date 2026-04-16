@@ -30,8 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -111,6 +110,10 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         List<SmsChannelStrategy.SmsReportResult.SmsStatus> statusList = reportResult.statusList();
         int updateCount = 0;
 
+        // 第一步：收集所有失败的记录，用于后续反转处理
+        List<SmsPhoneRecord> failedRecords = new ArrayList<>();
+        Map<String, SmsChannelStrategy.SmsReportResult.SmsStatus> statusMap = new HashMap<>();
+
         for (SmsChannelStrategy.SmsReportResult.SmsStatus status : statusList) {
             if (StrUtil.isBlank(status.msgId())) {
                 continue;
@@ -128,46 +131,28 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
             //获取用户信息（使用缓存）
             SysUser user = userService.getUserById(record.getCreateBy());
-
-            // 更新状态报告信息
-            LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
-            updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId())
-                .set(SmsPhoneRecord::getReceiveTime, parseReceiveTime(status.receiveTime()));
+            //反转率
+            Integer flipRate = user.getFlipRate();
 
             // 根据状态码更新发送状态和失败原因
             Integer sendStatus = convertToSendStatus(status.status());
-            if (sendStatus != null) {
-                updateWrapper.set(SmsPhoneRecord::getSendStatus, sendStatus);
-            }
 
-            String statusDesc = status.statusDesc();
-            if (StrUtil.isNotBlank(statusDesc)) {
-                updateWrapper.set(SmsPhoneRecord::getFailReason, statusDesc);
+            // 如果上游返回失败，且设置了反转率，则先收集起来后续处理
+            if (sendStatus != null && sendStatus == -1 && flipRate != null && flipRate > 0) {
+                failedRecords.add(record);
+                statusMap.put(record.getMsgId(), status);
+            } else {
+                // 非失败记录或没有反转率，直接更新
+                updateRecordStatus(record, status, sendStatus, user);
+                updateCount++;
             }
+        }
 
-            // 更新费用详情
-            SmsChannelStrategy.SmsReportResult.PriceDetail priceDetail = status.priceDetail();
-            if (priceDetail != null) {
-                // 使用 BigDecimal 计算外部费用，避免精度丢失
-                BigDecimal outUnitPrice = user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : BigDecimal.ZERO;
-                BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.ZERO;
-                BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
-                
-                updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount())
-                    .set(SmsPhoneRecord::getCurrency, priceDetail.currency())
-                    .set(SmsPhoneRecord::getChargeCount, priceDetail.chargeCount())
-                    .set(SmsPhoneRecord::getUnitPrice, priceDetail.unitPrice())
-                    .set(SmsPhoneRecord::getQuoteExchange, priceDetail.quoteExchange())
-                    .set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay())
-                    .set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency())
-                    .set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay())
-                    .set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice())
-                    .set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue())
-                    .set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
-            }
-
-            smsPhoneRecordMapper.update(null, updateWrapper);
-            updateCount++;
+        // 第二步：处理失败记录的反转逻辑
+        if (!failedRecords.isEmpty()) {
+            int flippedCount = applyFlipRate(failedRecords, statusMap);
+            updateCount += flippedCount;
+            log.info("应用反转率，共处理 {} 条失败记录，其中 {} 条反转为成功", failedRecords.size(), flippedCount);
         }
 
         log.info("更新状态报告成功，共更新 {} 条记录", updateCount);
@@ -276,6 +261,175 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             case 1 -> -1;  // Onbuka发送失败(1) -> 发送失败(-1)
             default -> null;
         };
+    }
+
+    /**
+     * 应用反转率：将部分失败记录反转为成功
+     *
+     * @param failedRecords 失败的记录列表
+     * @param statusMap     状态映射
+     * @return 反转为成功的记录数量
+     */
+    private int applyFlipRate(List<SmsPhoneRecord> failedRecords, Map<String, SmsChannelStrategy.SmsReportResult.SmsStatus> statusMap) {
+        if (CollUtil.isEmpty(failedRecords)) {
+            return 0;
+        }
+
+        // 按用户分组，因为不同用户的反转率可能不同
+        Map<Long, List<SmsPhoneRecord>> recordsByUser = failedRecords.stream()
+            .collect(Collectors.groupingBy(SmsPhoneRecord::getCreateBy));
+
+        int totalFlippedCount = 0;
+
+        // 遍历每个用户的失败记录
+        for (Map.Entry<Long, List<SmsPhoneRecord>> entry : recordsByUser.entrySet()) {
+            Long userId = entry.getKey();
+            List<SmsPhoneRecord> userFailedRecords = entry.getValue();
+
+            // 获取用户信息
+            SysUser user = userService.getUserById(userId);
+            Integer flipRate = user.getFlipRate();
+
+            if (flipRate == null || flipRate <= 0) {
+                // 没有设置反转率或反转率为0，全部标记为失败
+                for (SmsPhoneRecord record : userFailedRecords) {
+                    SmsChannelStrategy.SmsReportResult.SmsStatus status = statusMap.get(record.getMsgId());
+                    updateRecordStatus(record, status, -1, user);
+                }
+                continue;
+            }
+
+            // 计算需要反转的数量
+            int totalCount = userFailedRecords.size();
+            int flipCount = (int) Math.round(totalCount * flipRate / 100.0);
+            // 确保至少有一条可以反转（如果有失败记录且反转率>0）
+            flipCount = Math.min(flipCount, totalCount);
+            int failCount = totalCount - flipCount;
+
+            log.info("用户 {} 的失败记录应用反转率：总数={}, 反转率={}%, 反转成功数={}, 保持失败数={}",
+                userId, totalCount, flipRate, flipCount, failCount);
+
+            // 随机打乱记录顺序，确保公平性
+            Collections.shuffle(userFailedRecords);
+
+            // 前 flipCount 条反转为成功
+            for (int i = 0; i < flipCount; i++) {
+                SmsPhoneRecord record = userFailedRecords.get(i);
+                SmsChannelStrategy.SmsReportResult.SmsStatus status = statusMap.get(record.getMsgId());
+                updateFlipRecordStatus(record, status, user);
+            }
+            totalFlippedCount += flipCount;
+
+            // 剩余的保持失败
+            for (int i = flipCount; i < totalCount; i++) {
+                SmsPhoneRecord record = userFailedRecords.get(i);
+                SmsChannelStrategy.SmsReportResult.SmsStatus status = statusMap.get(record.getMsgId());
+                updateRecordStatus(record, status, -1, user);
+            }
+        }
+
+        return totalFlippedCount;
+    }
+
+    /**
+     * 更新反转单条记录的状态
+     *
+     * @param record 短信记录
+     * @param status 状态报告
+     * @param user   用户信息
+     */
+    private void updateFlipRecordStatus(SmsPhoneRecord record,
+                                        SmsChannelStrategy.SmsReportResult.SmsStatus status,
+                                        SysUser user) {
+        LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId())
+            .set(SmsPhoneRecord::getReceiveTime, parseReceiveTime(status.receiveTime()));
+
+        // 更新发送状态
+        updateWrapper.set(SmsPhoneRecord::getSendStatus, 2);
+
+        updateWrapper.set(SmsPhoneRecord::getFlipFailReason, status.statusDesc());
+
+        // 更新费用详情
+        SmsChannelStrategy.SmsReportResult.PriceDetail priceDetail = status.priceDetail();
+        if (priceDetail != null) {
+            // 使用 BigDecimal 计算外部费用，避免精度丢失
+            BigDecimal outUnitPrice = user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : BigDecimal.ZERO;
+            BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.valueOf(1);
+            BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
+
+            updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount())
+                .set(SmsPhoneRecord::getCurrency, priceDetail.currency())
+                .set(SmsPhoneRecord::getChargeCount, chargeCount)
+                .set(SmsPhoneRecord::getUnitPrice, priceDetail.unitPrice())
+                .set(SmsPhoneRecord::getQuoteExchange, priceDetail.quoteExchange())
+                .set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay())
+                .set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency())
+                .set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay())
+                .set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice())
+                .set(SmsPhoneRecord::getIsFlip, 1)
+                .set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue())
+                .set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
+        }
+
+        smsPhoneRecordMapper.update(null, updateWrapper);
+    }
+
+
+    /**
+     * 更新单条记录的状态
+     *
+     * @param record     短信记录
+     * @param status     状态报告
+     * @param sendStatus 发送状态：0=未发送，1=发送中，2=发送成功，-1=发送失败
+     * @param user       用户信息
+     */
+    private void updateRecordStatus(SmsPhoneRecord record,
+                                    SmsChannelStrategy.SmsReportResult.SmsStatus status,
+                                    Integer sendStatus,
+                                    SysUser user) {
+        LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId())
+            .set(SmsPhoneRecord::getReceiveTime, parseReceiveTime(status.receiveTime()));
+
+        // 更新发送状态
+        if (sendStatus != null) {
+            updateWrapper.set(SmsPhoneRecord::getSendStatus, sendStatus);
+        }
+
+        // 更新失败原因（只有失败时才设置）
+        if (sendStatus != null && sendStatus == -1) {
+            String reason = status.statusDesc();
+            if (StrUtil.isNotBlank(reason)) {
+                updateWrapper.set(SmsPhoneRecord::getFailReason, reason);
+            }
+        } else if (sendStatus != null && sendStatus == 2) {
+            // 成功时清空失败原因
+            updateWrapper.set(SmsPhoneRecord::getFailReason, null);
+        }
+
+        // 更新费用详情
+        SmsChannelStrategy.SmsReportResult.PriceDetail priceDetail = status.priceDetail();
+        if (priceDetail != null) {
+            // 使用 BigDecimal 计算外部费用，避免精度丢失
+            BigDecimal outUnitPrice = user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : BigDecimal.ZERO;
+            BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.ZERO;
+            BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
+
+            updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount())
+                .set(SmsPhoneRecord::getCurrency, priceDetail.currency())
+                .set(SmsPhoneRecord::getChargeCount, priceDetail.chargeCount())
+                .set(SmsPhoneRecord::getUnitPrice, priceDetail.unitPrice())
+                .set(SmsPhoneRecord::getQuoteExchange, priceDetail.quoteExchange())
+                .set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay())
+                .set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency())
+                .set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay())
+                .set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice())
+                .set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue())
+                .set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
+        }
+
+        smsPhoneRecordMapper.update(null, updateWrapper);
     }
 
     /**
