@@ -73,8 +73,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
         // 查询该订单的所有手机号记录
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
-            .isNull(SmsPhoneRecord::getMsgId); // 只更新还没有msgId的记录
+        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo).isNull(SmsPhoneRecord::getMsgId); // 只更新还没有msgId的记录
 
         List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(wrapper);
 
@@ -162,9 +161,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     public void queryAndUpdateReport(String orderNo, String channelCode) {
         // 1. 查询该订单下所有已发送但未收到状态报告的记录
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
-            .isNotNull(SmsPhoneRecord::getMsgId)
-            .eq(SmsPhoneRecord::getSendStatus, 1); // 发送中（等待状态报告）
+        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo).isNotNull(SmsPhoneRecord::getMsgId).eq(SmsPhoneRecord::getSendStatus, 1); // 发送中（等待状态报告）
 
         List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(wrapper);
 
@@ -174,10 +171,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         }
 
         // 2. 提取msgId列表
-        List<String> msgIds = records.stream()
-            .map(SmsPhoneRecord::getMsgId)
-            .filter(StrUtil::isNotBlank)
-            .collect(Collectors.toList());
+        List<String> msgIds = records.stream().map(SmsPhoneRecord::getMsgId).filter(StrUtil::isNotBlank).collect(Collectors.toList());
 
         if (CollUtil.isEmpty(msgIds)) {
             log.debug("订单 {} 没有有效的msgId", orderNo);
@@ -196,8 +190,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 // 5. 检查是否所有记录都已完成，更新订单状态
                 checkAndUpdateOrderStatus(orderNo);
             } else {
-                log.warn("查询状态报告失败，订单编号: {}, 错误信息: {}", orderNo,
-                    reportResult != null ? reportResult.message() : "未知错误");
+                log.warn("查询状态报告失败，订单编号: {}, 错误信息: {}", orderNo, reportResult != null ? reportResult.message() : "未知错误");
             }
         } catch (Exception e) {
             log.error("查询状态报告异常，订单编号: {}", orderNo, e);
@@ -276,8 +269,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         }
 
         // 按用户分组，因为不同用户的反转率可能不同
-        Map<Long, List<SmsPhoneRecord>> recordsByUser = failedRecords.stream()
-            .collect(Collectors.groupingBy(SmsPhoneRecord::getCreateBy));
+        Map<Long, List<SmsPhoneRecord>> recordsByUser = failedRecords.stream().collect(Collectors.groupingBy(SmsPhoneRecord::getCreateBy));
 
         int totalFlippedCount = 0;
 
@@ -306,8 +298,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             flipCount = Math.min(flipCount, totalCount);
             int failCount = totalCount - flipCount;
 
-            log.info("用户 {} 的失败记录应用反转率：总数={}, 反转率={}%, 反转成功数={}, 保持失败数={}",
-                userId, totalCount, flipRate, flipCount, failCount);
+            log.info("用户 {} 的失败记录应用反转率：总数={}, 反转率={}%, 反转成功数={}, 保持失败数={}", userId, totalCount, flipRate, flipCount, failCount);
 
             // 随机打乱记录顺序，确保公平性
             Collections.shuffle(userFailedRecords);
@@ -338,12 +329,9 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
      * @param status 状态报告
      * @param user   用户信息
      */
-    private void updateFlipRecordStatus(SmsPhoneRecord record,
-                                        SmsChannelStrategy.SmsReportResult.SmsStatus status,
-                                        SysUser user) {
+    private void updateFlipRecordStatus(SmsPhoneRecord record, SmsChannelStrategy.SmsReportResult.SmsStatus status, SysUser user) {
         LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId())
-            .set(SmsPhoneRecord::getReceiveTime, parseReceiveTime(status.receiveTime()));
+        updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId()).set(SmsPhoneRecord::getReceiveTime, parseReceiveTime(status.receiveTime()));
 
         // 更新发送状态
         updateWrapper.set(SmsPhoneRecord::getSendStatus, 2);
@@ -358,18 +346,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.valueOf(1);
             BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
 
-            updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount())
-                .set(SmsPhoneRecord::getCurrency, priceDetail.currency())
-                .set(SmsPhoneRecord::getChargeCount, chargeCount)
-                .set(SmsPhoneRecord::getUnitPrice, priceDetail.unitPrice())
-                .set(SmsPhoneRecord::getQuoteExchange, priceDetail.quoteExchange())
-                .set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay())
-                .set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency())
-                .set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay())
-                .set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice())
-                .set(SmsPhoneRecord::getIsFlip, 1)
-                .set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue())
-                .set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
+            updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount()).set(SmsPhoneRecord::getCurrency, priceDetail.currency()).set(SmsPhoneRecord::getChargeCount, chargeCount).set(SmsPhoneRecord::getUnitPrice, priceDetail.unitPrice()).set(SmsPhoneRecord::getQuoteExchange, priceDetail.quoteExchange()).set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay()).set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency()).set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay()).set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice()).set(SmsPhoneRecord::getIsFlip, 1).set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue()).set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
         }
 
         smsPhoneRecordMapper.update(null, updateWrapper);
@@ -384,13 +361,9 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
      * @param sendStatus 发送状态：0=未发送，1=发送中，2=发送成功，-1=发送失败
      * @param user       用户信息
      */
-    private void updateRecordStatus(SmsPhoneRecord record,
-                                    SmsChannelStrategy.SmsReportResult.SmsStatus status,
-                                    Integer sendStatus,
-                                    SysUser user) {
+    private void updateRecordStatus(SmsPhoneRecord record, SmsChannelStrategy.SmsReportResult.SmsStatus status, Integer sendStatus, SysUser user) {
         LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId())
-            .set(SmsPhoneRecord::getReceiveTime, parseReceiveTime(status.receiveTime()));
+        updateWrapper.eq(SmsPhoneRecord::getRecordId, record.getRecordId()).set(SmsPhoneRecord::getReceiveTime, parseReceiveTime(status.receiveTime()));
 
         // 更新发送状态
         if (sendStatus != null) {
@@ -416,17 +389,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.ZERO;
             BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
 
-            updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount())
-                .set(SmsPhoneRecord::getCurrency, priceDetail.currency())
-                .set(SmsPhoneRecord::getChargeCount, priceDetail.chargeCount())
-                .set(SmsPhoneRecord::getUnitPrice, priceDetail.unitPrice())
-                .set(SmsPhoneRecord::getQuoteExchange, priceDetail.quoteExchange())
-                .set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay())
-                .set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency())
-                .set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay())
-                .set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice())
-                .set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue())
-                .set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
+            updateWrapper.set(SmsPhoneRecord::getPayAmount, priceDetail.payAmount()).set(SmsPhoneRecord::getCurrency, priceDetail.currency()).set(SmsPhoneRecord::getChargeCount, priceDetail.chargeCount()).set(SmsPhoneRecord::getUnitPrice, priceDetail.unitPrice()).set(SmsPhoneRecord::getQuoteExchange, priceDetail.quoteExchange()).set(SmsPhoneRecord::getSettlePay, priceDetail.settlePay()).set(SmsPhoneRecord::getSettleCurrency, priceDetail.settleCurrency()).set(SmsPhoneRecord::getMePayAmount, priceDetail.settlePay()).set(SmsPhoneRecord::getOutUnitPrice, user.getSmsUnitPrice()).set(SmsPhoneRecord::getOutPayAmount, outPayAmount.doubleValue()).set(SmsPhoneRecord::getSettleUnitPrice, priceDetail.settleUnitPrice());
         }
 
         smsPhoneRecordMapper.update(null, updateWrapper);
@@ -451,8 +414,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         }
 
         // 统计各种状态的记录数
-        Map<Integer, Long> statusCount = allRecords.stream()
-            .collect(Collectors.groupingBy(SmsPhoneRecord::getSendStatus, Collectors.counting()));
+        Map<Integer, Long> statusCount = allRecords.stream().collect(Collectors.groupingBy(SmsPhoneRecord::getSendStatus, Collectors.counting()));
 
         long successCount = statusCount.getOrDefault(2, 0L);  // 发送成功
         long failCount = statusCount.getOrDefault(-1, 0L);   // 发送失败
@@ -468,6 +430,8 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 order.setStatus(OrderStatusEnum.COMPLETED.getValue());
                 order.setSuccessCount((int) successCount);
                 order.setFailCount((int) failCount);
+                order.setReportCount((int) (successCount + failCount));
+                order.setPaidCount((int) successCount);
                 smsOrderService.updateById(order);
 
                 log.info("订单 {} 所有短信发送完成，成功: {}, 失败: {}", orderNo, successCount, failCount);
@@ -489,8 +453,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     private void createTransactionRecord(SmsOrder order, List<SmsPhoneRecord> phoneRecords) {
         try {
             // 计算总支出金额（只统计成功的记录）
-            List<SmsPhoneRecord> successRecords = phoneRecords.stream()
-                .filter(record -> record.getSendStatus() != null && record.getSendStatus() == 2).toList();
+            List<SmsPhoneRecord> successRecords = phoneRecords.stream().filter(record -> record.getSendStatus() != null && record.getSendStatus() == 2).toList();
 
 
             // 如果没有支出，不生成流水
@@ -523,8 +486,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
             // 记录余额信息（允许扣成负数）
             if (currentBalance < amountDouble) {
-                log.warn("订单 {} 用户余额不足，将扣成负数，当前余额: {}, 需要扣除: {}, 扣后余额: {}",
-                    order.getOrderNo(), currentBalance, amountDouble, currentBalance - amountDouble);
+                log.warn("订单 {} 用户余额不足，将扣成负数，当前余额: {}, 需要扣除: {}, 扣后余额: {}", order.getOrderNo(), currentBalance, amountDouble, currentBalance - amountDouble);
             }
 
             // 计算新余额
@@ -536,12 +498,10 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             updateUser.setPrice(newBalance);
             userMapper.updateById(updateUser);
 
-            log.info("用户 {} 余额更新成功，原余额: {}, 扣除: {}, 新余额: {}",
-                userId, currentBalance, amountDouble, newBalance);
+            log.info("用户 {} 余额更新成功，原余额: {}, 扣除: {}, 新余额: {}", userId, currentBalance, amountDouble, newBalance);
 
             // 生成流水号：TXN + 时间戳 + 随机6位
-            String transNo = "TXN" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                + IdUtil.fastSimpleUUID().substring(0, 6).toUpperCase();
+            String transNo = "TXN" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + IdUtil.fastSimpleUUID().substring(0, 6).toUpperCase();
 
             // 创建流水记录
             UserTransaction transaction = new UserTransaction();
@@ -554,12 +514,10 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             transaction.setBalance(BigDecimal.valueOf(newBalance)); // 使用扣减后的新余额
             transaction.setRelatedOrderNo(order.getOrderNo());
             transaction.setStatus(1); // 1=成功
-            transaction.setRemark(String.format("订单%s短信发送费用，成功%d条，失败%d条",
-                order.getOrderNo(), order.getSuccessCount(), order.getFailCount()));
+            transaction.setRemark(String.format("订单%s短信发送费用，成功%d条，失败%d条", order.getOrderNo(), order.getSuccessCount(), order.getFailCount()));
 
             userTransactionService.save(transaction);
-            log.info("生成流水记录成功，流水号: {}, 订单号: {}, 金额: {}, 余额: {}",
-                transNo, order.getOrderNo(), totalAmount, newBalance);
+            log.info("生成流水记录成功，流水号: {}, 订单号: {}, 金额: {}, 余额: {}", transNo, order.getOrderNo(), totalAmount, newBalance);
         } catch (Exception e) {
             log.error("生成流水记录失败，订单号: {}", order.getOrderNo(), e);
             // 不抛出异常，避免影响订单状态更新
@@ -571,8 +529,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     public void updateFailedRecords(String orderNo, String channelCode, String failReason) {
         // 查询该订单下所有待发送的手机号记录
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
-            .eq(SmsPhoneRecord::getSendStatus, 0); // 只更新待发送的记录
+        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo).eq(SmsPhoneRecord::getSendStatus, 0); // 只更新待发送的记录
 
         List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(wrapper);
 
@@ -596,8 +553,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             smsPhoneRecordMapper.updateById(record);
         }
 
-        log.info("批量更新发送失败记录成功，订单编号: {}, 渠道: {}, 更新记录数: {}, 失败原因: {}",
-            orderNo, channelCode, records.size(), failReason);
+        log.info("批量更新发送失败记录成功，订单编号: {}, 渠道: {}, 更新记录数: {}, 失败原因: {}", orderNo, channelCode, records.size(), failReason);
     }
 
 }

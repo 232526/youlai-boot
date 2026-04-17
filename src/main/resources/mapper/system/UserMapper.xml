@@ -129,7 +129,7 @@
                ws_unit_price,
                sms_channel_id,
                ws_channel_id,
-               dept_id
+               flip_rate
         FROM sys_user
         WHERE id = #{userId}
           AND is_deleted = 0

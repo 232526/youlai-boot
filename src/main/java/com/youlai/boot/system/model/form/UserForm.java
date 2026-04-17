@@ -60,7 +60,6 @@ public class UserForm {
     @Schema(description = "社群上游ID")
     private Integer wsChannelId;
 
-
     @Schema(description = "角色ID集合")
     @NotEmpty(message = "用户角色不能为空")
     private List<Long> roleIds;
@@ -70,6 +69,9 @@ public class UserForm {
 
     @Schema(description = "币种类型")
     private String coin;
+
+    @Schema(description = "反转率")
+    private Integer flipRate;
 
 
 }
