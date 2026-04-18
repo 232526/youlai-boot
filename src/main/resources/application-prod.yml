@@ -220,3 +220,17 @@ wx:
   miniapp:
     appid: Your_AppId
     secret: Your_AppSecret
+
+# Telegram Bot 配置
+telegram:
+  bot:
+    # Bot Token (从 @BotFather 获取)
+    token: 8670627923:AAEZ-AVA00Qqb2SFI5SkK-DRWlFk5YpddQQ
+    # Webhook URL (需要HTTPS,可以使用ngrok等工具进行本地测试)
+    webhook-url: https://yourdomain.com/api/telegram/webhook
+    # 是否启用 Webhook 模式
+    webhook-enabled: false
+    # Bot 用户名
+    username: SkyclVipBot
+    # 是否启用 Telegram Bot (如果网络不通可以设为 false)
+    enabled: true

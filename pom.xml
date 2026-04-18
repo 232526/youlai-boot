@@ -64,6 +64,8 @@
 
         <weixin-java-miniapp.version>4.8.1.B</weixin-java-miniapp.version>
 
+        <!-- Telegram Bot -->
+        <telegrambots.version>6.9.7.1</telegrambots.version>
 
     </properties>
 
@@ -282,6 +284,13 @@
             <artifactId>dynamic-datasource-spring-boot3-starter</artifactId>
             <version>${dynamic-datasource.version}</version>
         </dependency>-->
+
+        <!-- Telegram Bot SDK -->
+        <dependency>
+            <groupId>org.telegram</groupId>
+            <artifactId>telegrambots</artifactId>
+            <version>${telegrambots.version}</version>
+        </dependency>
 
     </dependencies>
 
