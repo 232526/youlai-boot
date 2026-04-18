@@ -297,7 +297,11 @@ public class TelegramBotService {
             response.append("🆔 用户昵称: ").append(sysUser.getNickname()).append("\n");
             // 例如: 查询用户的账户余额、积分等
             response.append("\n💵 账户余额:").append(sysUser.getPrice()).append("\n");
-            response.append("⭐ SMS剩余发送条数为:").append((int) (sysUser.getPrice() / sysUser.getSmsUnitPrice())).append("\n");
+            if (sysUser.getPrice() >= 0) {
+                response.append("⭐ SMS剩余发送条数为:").append((int) (sysUser.getPrice() / sysUser.getSmsUnitPrice())).append("\n");
+            } else {
+                response.append("⭐ SMS剩余发送条数为: 0").append("\n");
+            }
 
             response.append("\n⏰ 查询时间: ").append(java.time.LocalDateTime.now().format(
                 java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
