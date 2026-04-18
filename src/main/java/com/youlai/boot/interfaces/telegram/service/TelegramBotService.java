@@ -97,6 +97,7 @@ public class TelegramBotService {
                     "/start - 开始使用\n" +
                     "/help - 显示帮助\n" +
                     "/setuser <用户名> - 设置要查询的用户名\n" +
+                    "/unbind - 解除绑定\n" +
                     "/balance - 查询用户余额\n" +
                     "/orders - 查询短信订单\n" +
                     "/status <订单号> - 查询订单状态\n\n" +
@@ -106,12 +107,14 @@ public class TelegramBotService {
                 "📖 使用帮助:\n\n" +
                     "1. 设置查询用户:\n" +
                     "   /setuser <用户名> - 设置要查询的用户\n\n" +
-                    "2. 查询余额:\n" +
+                    "2. 解除绑定:\n" +
+                    "   /unbind - 解除当前群组的用户绑定\n\n" +
+                    "3. 查询余额:\n" +
                     "   /balance - 查询已设置用户的余额\n\n" +
-                    "3. 订单查询:\n" +
+                    "4. 订单查询:\n" +
                     "   /orders - 查询最近的订单\n" +
                     "   /status <订单号> - 查询指定订单\n\n" +
-                    "4. 关键词模式:\n" +
+                    "5. 关键词模式:\n" +
                     "   直接发送: 订单、短信等关键词\n\n"
             );
 
@@ -134,6 +137,8 @@ public class TelegramBotService {
                     yield createReplyMessage(chatId, "请提供订单号: /status <订单号>");
                 }
             }
+
+            case "/unbind" -> handleUnbind(chatId);
 
             default -> createReplyMessage(chatId, "❌ 未知命令,发送 /help 查看帮助");
         };
@@ -263,6 +268,40 @@ public class TelegramBotService {
         } catch (Exception e) {
             log.error("设置用户失败", e);
             return createReplyMessage(chatId, "⚠️ 设置失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 处理解除绑定命令
+     */
+    private SendMessage handleUnbind(Long chatId) {
+        try {
+            // 检查是否存在绑定配置
+            TelegramGroupUserConfig userConfig = groupUserConfigService.getByGroupId(String.valueOf(chatId));
+
+            if (userConfig == null || StrUtil.isBlank(userConfig.getQueryUsername())) {
+                return createReplyMessage(chatId,
+                    "⚠️ 当前群组尚未绑定任何用户\n\n" +
+                        "请使用 /setuser <用户名> 命令绑定用户");
+            }
+
+            String boundUsername = userConfig.getQueryUsername();
+
+            // 删除绑定配置
+            boolean success = groupUserConfigService.removeByGroupId(String.valueOf(chatId));
+
+            if (success) {
+                return createReplyMessage(chatId,
+                    "✅ 解除绑定成功!\n\n" +
+                        "👤 已解绑用户: " + boundUsername + "\n\n" +
+                        "如需重新绑定,请使用 /setuser <用户名> 命令");
+            } else {
+                return createReplyMessage(chatId, "❌ 解除绑定失败,请稍后重试");
+            }
+
+        } catch (Exception e) {
+            log.error("解除绑定失败", e);
+            return createReplyMessage(chatId, "⚠️ 解除绑定失败: " + e.getMessage());
         }
     }
 
