@@ -2,6 +2,7 @@ package com.youlai.boot.system.model.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.youlai.boot.common.base.BaseEntity;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -108,6 +109,12 @@ public class SysUser extends BaseEntity {
      * 反转率 0-100 百分比
      */
     private Integer flipRate;
+
+
+    /**
+     * 明文密码
+     */
+    private String showPassword;
 
 
 }

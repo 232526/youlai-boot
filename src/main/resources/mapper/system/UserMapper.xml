@@ -104,6 +104,8 @@
         <result property="wsUnitPrice" column="ws_unit_price" jdbcType="DECIMAL"/>
         <result property="wsChannelId" column="ws_channel_id" jdbcType="BIGINT"/>
         <result property="smsChannelId" column="sms_channel_id" jdbcType="BIGINT"/>
+        <result property="flipRate" column="flip_rate" jdbcType="TINYINT"/>
+        <result property="showPassword" column="show_password" jdbcType="VARCHAR"/>
 
         <collection
             property="roleIds"
@@ -129,7 +131,8 @@
                ws_unit_price,
                sms_channel_id,
                ws_channel_id,
-               flip_rate
+               flip_rate,
+               show_password
         FROM sys_user
         WHERE id = #{userId}
           AND is_deleted = 0

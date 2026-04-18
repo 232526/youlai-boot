@@ -73,5 +73,7 @@ public class UserForm {
     @Schema(description = "反转率")
     private Integer flipRate;
 
+    @Schema(description = "明文密码")
+    private String showPassword;
 
 }

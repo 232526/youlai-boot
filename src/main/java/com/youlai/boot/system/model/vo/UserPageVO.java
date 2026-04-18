@@ -72,9 +72,13 @@ public class UserPageVO {
     @Schema(description = "币种类型")
     private String coin;
 
-
     @Schema(description = "创建时间")
     @JsonFormat(pattern = "yyyy/MM/dd HH:mm")
     private LocalDateTime createTime;
+
+
+    @Schema(description = "明文密码")
+    private String showPassword;
+
 }
 

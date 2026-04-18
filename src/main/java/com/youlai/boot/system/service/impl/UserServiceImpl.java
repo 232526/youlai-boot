@@ -180,6 +180,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         Assert.isTrue(count == 0, "用户名已存在");
 
         // 设置默认加密密码
+        entity.setShowPassword(SystemConstants.DEFAULT_PASSWORD);
         String defaultEncryptPwd = passwordEncoder.encode(SystemConstants.DEFAULT_PASSWORD);
         entity.setPassword(defaultEncryptPwd);
         entity.setCreateBy(SecurityUtils.getUserId());
@@ -480,6 +481,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     public boolean resetUserPassword(Long userId, String password) {
         boolean result = this.update(new LambdaUpdateWrapper<SysUser>()
             .eq(SysUser::getId, userId)
+            .set(SysUser::getShowPassword, password)
             .set(SysUser::getPassword, passwordEncoder.encode(password))
         );
         if (result) {
