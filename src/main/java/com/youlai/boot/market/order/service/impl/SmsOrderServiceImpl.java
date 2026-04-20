@@ -111,7 +111,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
 
                 // 填充短信数量（不重复手机号数量 × 文本数量）
                 Long phoneCount = phoneCountMap.getOrDefault(record.getOrderNo(), 0L);
-                record.setSmsCount((int) (phoneCount * contentCount));
+                record.setSmsCount(Math.toIntExact(phoneCount));
             });
         }
 
