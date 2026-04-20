@@ -189,10 +189,26 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
             contentIds.add(content.getContentId());
         }
 
-        // 保存手机号记录（多对多：每个手机号对应所有内容）
+        // 保存手机号记录
+        // 规则：只有1条文案时，所有号码发同一条；多条文案时，每个号码随机分配一条文案
         List<String> phoneNumberList = formData.getPhoneNumberList();
-        for (String phoneNumber : phoneNumberList) {
-            for (Long contentId : contentIds) {
+        Random random = new Random();
+
+        if (contentIds.size() == 1) {
+            // 单条文案：所有号码都发这一条
+            Long contentId = contentIds.get(0);
+            for (String phoneNumber : phoneNumberList) {
+                SmsPhoneRecord record = new SmsPhoneRecord();
+                record.setOrderNo(orderId);
+                record.setContentId(contentId);
+                record.setPhoneNumber(phoneNumber);
+                record.setSendStatus(0); // 待发送
+                smsPhoneRecordMapper.insert(record);
+            }
+        } else {
+            // 多条文案：每个号码随机分配一条文案
+            for (String phoneNumber : phoneNumberList) {
+                Long contentId = contentIds.get(random.nextInt(contentIds.size()));
                 SmsPhoneRecord record = new SmsPhoneRecord();
                 record.setOrderNo(orderId);
                 record.setContentId(contentId);
