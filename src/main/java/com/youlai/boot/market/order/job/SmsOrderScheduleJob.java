@@ -129,7 +129,9 @@ public class SmsOrderScheduleJob {
                 if (sendResult.msgIds() != null) {
                     allMsgIds.addAll(sendResult.msgIds());
                 }
-                log.info("订单 {} 第 {}/{} 批发送成功，消息IDs: {}", order.getOrderNo(), batchIndex + 1, batches.size(), sendResult.msgIds());
+                // 每批发送成功后立即更新该批手机号的状态
+                smsPhoneRecordService.saveSendResult(order.getOrderNo(), sendResult, channelCode);
+                log.info("订单 {} 第 {}/{} 批发送成功并更新状态，消息IDs数量: {}", order.getOrderNo(), batchIndex + 1, batches.size(), sendResult.msgIds() != null ? sendResult.msgIds().size() : 0);
             } else {
                 allSuccess = false;
                 lastFailReason = sendResult.failReason() != null ? sendResult.failReason() : sendResult.message();
