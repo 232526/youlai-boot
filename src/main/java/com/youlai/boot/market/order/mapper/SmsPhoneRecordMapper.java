@@ -58,4 +58,17 @@ public interface SmsPhoneRecordMapper extends BaseMapper<SmsPhoneRecord> {
     @Select("SELECT send_status, COUNT(*) as count FROM sms_phone_record WHERE order_no = #{orderNo} AND is_deleted = 0 GROUP BY send_status")
     List<Map<String, Object>> countByOrderNoGroupByStatus(@Param("orderNo") String orderNo);
 
+    /**
+     * 查询发送中状态的去重msgId列表（轻量查询，仅返回msgId、channel、orderNo）
+     *
+     * @param limit 最大返回数量
+     * @return 去重后的msgId记录列表
+     */
+    @Select("SELECT msg_id, channel, order_no FROM sms_phone_record " +
+            "WHERE send_status = 1 AND msg_id IS NOT NULL AND is_deleted = 0 " +
+            "GROUP BY msg_id, channel, order_no " +
+            "ORDER BY order_no ASC " +
+            "LIMIT #{limit}")
+    List<Map<String, Object>> selectDistinctMsgIdsForReport(@Param("limit") int limit);
+
 }

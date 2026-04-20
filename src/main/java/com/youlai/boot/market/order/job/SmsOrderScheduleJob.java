@@ -3,6 +3,7 @@ package com.youlai.boot.market.order.job;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.youlai.boot.market.order.enums.OrderStatusEnum;
+import com.youlai.boot.market.order.mapper.SmsPhoneRecordMapper;
 import com.youlai.boot.market.order.model.entity.SmsMessageContent;
 import com.youlai.boot.market.order.model.entity.SmsOrder;
 import com.youlai.boot.market.order.model.entity.SmsPhoneRecord;
@@ -19,6 +20,8 @@ import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +36,7 @@ public class SmsOrderScheduleJob {
 
     private final SmsOrderService smsOrderService;
     private final SmsPhoneRecordService smsPhoneRecordService;
+    private final SmsPhoneRecordMapper smsPhoneRecordMapper;
     private final SmsChannelContext smsChannelContext;
 
     /**
@@ -42,9 +46,14 @@ public class SmsOrderScheduleJob {
 
 
     /**
-     * 每次最大查询次数
+     * 每次从数据库查询的去重msgId数量上限
      */
-    private static final int SEARCH_BATCH_SIZE = 200;
+    private static final int MSG_ID_QUERY_LIMIT = 1000;
+
+    /**
+     * 状态报告API单次最大查询msgId数量
+     */
+    private static final int REPORT_API_BATCH_SIZE = 200;
 
     /**
      * 定时检查并执行待发送的订单
@@ -188,6 +197,12 @@ public class SmsOrderScheduleJob {
 
     /**
      * 定时查询并更新短信状态报告
+     * <p>
+     * 优化逻辑：
+     * 1. 轻量SQL直接查询去重的msgId（仅返回msgId、channel、orderNo），避免加载完整实体
+     * 2. 按渠道分组，每200个msgId为一批调用API查询状态报告
+     * 3. 聚合所有批次的查询结果后统一批量更新
+     * 4. 更新完成后统一检查相关订单状态
      */
     @PostConstruct
     @Scheduled(fixedDelay = 120000)
@@ -196,88 +211,104 @@ public class SmsOrderScheduleJob {
 
         try {
             int totalProcessed = 0;
-            int whileTotal = 0;
+            int loopCount = 0;
 
-            // 分页查询发送中的记录，每页 SEND_BATCH_SIZE 条，避免全量加载导致内存溢出
-            while (true) {
-                if (whileTotal > 100) {
-                    break;
-                }
+            while (loopCount < 100) {
+                // 轻量查询：仅获取去重的 msgId + channel + orderNo，不加载完整实体
+                List<Map<String, Object>> msgIdRecords = smsPhoneRecordMapper.selectDistinctMsgIdsForReport(MSG_ID_QUERY_LIMIT);
 
-                // 每次查第1页，因为处理完的记录 sendStatus 会被更新，不再满足查询条件
-                Page<SmsPhoneRecord> page = new Page<>(1, SEARCH_BATCH_SIZE, false);
-                LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(SmsPhoneRecord::getSendStatus, 1)  // 发送中状态
-                    .isNotNull(SmsPhoneRecord::getMsgId)       // 必须有msgId才能查询HTTP请求失败
-                    .orderByAsc(SmsPhoneRecord::getOrderNo);
-                Page<SmsPhoneRecord> recordPage = smsPhoneRecordService.page(page, wrapper);
-
-                List<SmsPhoneRecord> batchRecords = recordPage.getRecords();
-                if (CollectionUtils.isEmpty(batchRecords)) {
+                if (CollectionUtils.isEmpty(msgIdRecords)) {
                     if (totalProcessed == 0) {
                         log.debug("当前没有发送中的手机号记录");
                     }
                     break;
                 }
 
-                log.info("本批查询到 {} 条发送中的记录，开始查询状态报告", batchRecords.size());
+                log.info("本轮查询到 {} 个去重msgId，开始查询状态报告", msgIdRecords.size());
 
-                // 按订单编号和渠道分组，批量查询状态报告
-                var recordsByOrderAndChannel = batchRecords.stream().collect(Collectors.groupingBy(record -> record.getOrderNo() + "_" + (record.getChannel() != null ? record.getChannel() : "ONBUKA")));
+                // 按渠道分组
+                Map<String, List<String>> msgIdsByChannel = msgIdRecords.stream()
+                    .collect(Collectors.groupingBy(
+                        r -> r.get("channel") != null ? r.get("channel").toString() : "ONBUKA",
+                        Collectors.mapping(r -> r.get("msg_id").toString(), Collectors.toList())
+                    ));
 
-                // 遍历每个订单+渠道组合
-                for (var entry : recordsByOrderAndChannel.entrySet()) {
-                    try {
-                        List<SmsPhoneRecord> records = entry.getValue();
-                        if (records.isEmpty()) {
-                            continue;
+                // 收集本轮涉及的所有订单号
+                Set<String> affectedOrderNos = msgIdRecords.stream()
+                    .map(r -> r.get("order_no").toString())
+                    .collect(Collectors.toSet());
+
+                // 按渠道分别处理
+                for (var channelEntry : msgIdsByChannel.entrySet()) {
+                    String channelCode = channelEntry.getKey();
+                    List<String> allMsgIds = channelEntry.getValue();
+
+                    if (allMsgIds.isEmpty()) {
+                        continue;
+                    }
+
+                    int totalBatches = (allMsgIds.size() + REPORT_API_BATCH_SIZE - 1) / REPORT_API_BATCH_SIZE;
+                    log.info("渠道 {} 共有 {} 个msgId，将分 {} 批查询状态报告", channelCode, allMsgIds.size(), totalBatches);
+
+                    // 获取渠道策略
+                    SmsChannelStrategy strategy = smsChannelContext.getStrategy(channelCode);
+
+                    // 聚合所有批次的状态结果
+                    List<SmsChannelStrategy.SmsReportResult.SmsStatus> allStatusList = new ArrayList<>();
+
+                    // 按 REPORT_API_BATCH_SIZE 分批调用API查询
+                    for (int i = 0; i < allMsgIds.size(); i += REPORT_API_BATCH_SIZE) {
+                        int end = Math.min(i + REPORT_API_BATCH_SIZE, allMsgIds.size());
+                        List<String> batchMsgIds = allMsgIds.subList(i, end);
+                        int batchNo = i / REPORT_API_BATCH_SIZE + 1;
+
+                        try {
+                            log.debug("渠道 {} 查询第 {}/{} 批状态报告，本批msgId数量: {}",
+                                channelCode, batchNo, totalBatches, batchMsgIds.size());
+
+                            SmsChannelStrategy.SmsReportResult reportResult = strategy.queryReport(batchMsgIds);
+
+                            if (reportResult != null && reportResult.success() && reportResult.statusList() != null) {
+                                allStatusList.addAll(reportResult.statusList());
+                            } else {
+                                log.warn("渠道 {} 第 {} 批状态报告查询失败: {}",
+                                    channelCode, batchNo,
+                                    reportResult != null ? reportResult.message() : "未知错误");
+                            }
+                        } catch (Exception e) {
+                            log.error("渠道 {} 第 {} 批状态报告查询异常", channelCode, batchNo, e);
                         }
+                    }
 
-                        SmsPhoneRecord firstRecord = records.get(0);
-                        String orderNo = firstRecord.getOrderNo();
-                        String channelCode = firstRecord.getChannel() != null ? firstRecord.getChannel() : "ONBUKA";
-
-                        // 提取该组的所有msgId
-                        List<String> msgIds = records.stream().map(SmsPhoneRecord::getMsgId).filter(msgId -> msgId != null && !msgId.isEmpty()).distinct().collect(Collectors.toList());
-
-                        if (msgIds.isEmpty()) {
-                            log.warn("订单 {} 没有有效的msgId", orderNo);
-                            continue;
-                        }
-
-                        log.info("查询订单 {} 的状态报告，渠道: {}, msgId数量: {}", orderNo, channelCode, msgIds.size());
-
-                        // 调用渠道策略查询状态报告
-                        SmsChannelStrategy strategy = smsChannelContext.getStrategy(channelCode);
-                        SmsChannelStrategy.SmsReportResult reportResult = strategy.queryReport(msgIds);
-
-                        // 更新状态报告
-                        if (reportResult != null && reportResult.success()) {
-                            smsPhoneRecordService.updateReportResult(reportResult);
-
-                            // 检查是否所有记录都已完成，更新订单状态
-                            smsPhoneRecordService.checkAndUpdateOrderStatus(orderNo);
-
-                            log.info("订单 {} 状态报告更新成功", orderNo);
-                        } else {
-                            log.warn("查询订单 {} 状态报告失败，错误信息: {}", orderNo, reportResult != null ? reportResult.message() : "未知错误");
-                        }
-                    } catch (Exception e) {
-                        log.error("查询订单状态报告失败，分组key: {}", entry.getKey(), e);
+                    // 聚合结果后统一批量更新
+                    if (!allStatusList.isEmpty()) {
+                        log.info("渠道 {} 共获取到 {} 条状态报告，开始批量更新", channelCode, allStatusList.size());
+                        SmsChannelStrategy.SmsReportResult aggregatedResult =
+                            new SmsChannelStrategy.SmsReportResult(true, "聚合查询成功", allStatusList);
+                        smsPhoneRecordService.updateReportResult(aggregatedResult);
                     }
                 }
 
-                totalProcessed += batchRecords.size();
+                // 统一检查相关订单状态
+                for (String orderNo : affectedOrderNos) {
+                    try {
+                        smsPhoneRecordService.checkAndUpdateOrderStatus(orderNo);
+                    } catch (Exception e) {
+                        log.error("检查订单 {} 状态失败", orderNo, e);
+                    }
+                }
 
-                // 如果本批不足 SEND_BATCH_SIZE 条，说明没有更多记录了
-                if (batchRecords.size() < SEARCH_BATCH_SIZE) {
+                totalProcessed += msgIdRecords.size();
+
+                // 如果本轮不足 MSG_ID_QUERY_LIMIT 条，说明没有更多了
+                if (msgIdRecords.size() < MSG_ID_QUERY_LIMIT) {
                     break;
                 }
-                whileTotal++;
+                loopCount++;
             }
 
             if (totalProcessed > 0) {
-                log.info("状态报告查询任务执行完成，共处理 {} 条记录", totalProcessed);
+                log.info("状态报告查询任务执行完成，共处理 {} 个msgId", totalProcessed);
             }
 
         } catch (Exception e) {

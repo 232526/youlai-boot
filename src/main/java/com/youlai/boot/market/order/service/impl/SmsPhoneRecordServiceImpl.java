@@ -105,6 +105,11 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         log.info("保存发送结果成功，订单编号: {}, 更新记录数: {}", orderNo, updateCount);
     }
 
+    /**
+     * IN查询分批大小，避免SQL过长
+     */
+    private static final int IN_BATCH_SIZE = 500;
+
     @Override
     public void updateReportResult(SmsChannelStrategy.SmsReportResult reportResult) {
         if (reportResult == null || !reportResult.success() || CollUtil.isEmpty(reportResult.statusList())) {
@@ -114,26 +119,54 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
         List<SmsChannelStrategy.SmsReportResult.SmsStatus> statusList = reportResult.statusList();
 
-        // 第一步：收集所有有效 msgId，一次批量查询对应记录
+        // 第一步：收集所有有效且去重的 msgId
         List<String> validMsgIds = statusList.stream()
             .map(SmsChannelStrategy.SmsReportResult.SmsStatus::msgId)
             .filter(StrUtil::isNotBlank)
+            .distinct()
             .collect(Collectors.toList());
 
         if (CollUtil.isEmpty(validMsgIds)) {
             return;
         }
 
-        LambdaQueryWrapper<SmsPhoneRecord> batchWrapper = new LambdaQueryWrapper<>();
-        batchWrapper.in(SmsPhoneRecord::getMsgId, validMsgIds);
-        List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(batchWrapper);
-        Map<String, SmsPhoneRecord> recordMap = records.stream()
-            .collect(Collectors.toMap(SmsPhoneRecord::getMsgId, r -> r));
+        // 第二步：分批查询记录（避免IN子句过大），仅查必要字段
+        Map<String, SmsPhoneRecord> recordMap = new HashMap<>(validMsgIds.size());
+        for (int i = 0; i < validMsgIds.size(); i += IN_BATCH_SIZE) {
+            int end = Math.min(i + IN_BATCH_SIZE, validMsgIds.size());
+            List<String> batchIds = validMsgIds.subList(i, end);
 
-        // 第二步：分拣记录——直接更新 vs 需要反转
+            LambdaQueryWrapper<SmsPhoneRecord> batchWrapper = new LambdaQueryWrapper<>();
+            batchWrapper.select(
+                    SmsPhoneRecord::getRecordId,
+                    SmsPhoneRecord::getMsgId,
+                    SmsPhoneRecord::getCreateBy
+                )
+                .in(SmsPhoneRecord::getMsgId, batchIds);
+            List<SmsPhoneRecord> batchRecords = smsPhoneRecordMapper.selectList(batchWrapper);
+            for (SmsPhoneRecord r : batchRecords) {
+                recordMap.put(r.getMsgId(), r);
+            }
+        }
+
+        // 第三步：预加载所有涉及的用户（避免循环中逐个查询）
+        Set<Long> userIds = recordMap.values().stream()
+            .map(SmsPhoneRecord::getCreateBy)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Map<Long, SysUser> userCache = new HashMap<>(userIds.size());
+        for (Long userId : userIds) {
+            SysUser user = userService.getUserById(userId);
+            if (user != null) {
+                userCache.put(userId, user);
+            }
+        }
+
+        // 第四步：分拣记录——跳过仍在发送中的、分拣直接更新 vs 需要反转
         List<SmsPhoneRecord> recordsToUpdate = new ArrayList<>();
         List<SmsPhoneRecord> failedRecords = new ArrayList<>();
         Map<String, SmsChannelStrategy.SmsReportResult.SmsStatus> statusMap = new HashMap<>();
+        int skippedCount = 0;
 
         for (SmsChannelStrategy.SmsReportResult.SmsStatus status : statusList) {
             if (StrUtil.isBlank(status.msgId())) continue;
@@ -144,11 +177,23 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 continue;
             }
 
-            SysUser user = userService.getUserById(record.getCreateBy());
-            Integer flipRate = user.getFlipRate();
             Integer sendStatus = convertToSendStatus(status.status());
 
-            if (sendStatus != null && sendStatus == -1 && flipRate != null && flipRate > 0) {
+            // 跳过仍在发送中的记录（状态未变化，无需更新）
+            if (sendStatus == null || sendStatus == 1) {
+                skippedCount++;
+                continue;
+            }
+
+            SysUser user = userCache.get(record.getCreateBy());
+            if (user == null) {
+                log.warn("未找到用户信息，userId: {}, msgId: {}", record.getCreateBy(), status.msgId());
+                continue;
+            }
+
+            Integer flipRate = user.getFlipRate();
+
+            if (sendStatus == -1 && flipRate != null && flipRate > 0) {
                 // 上游返回失败且用户配置了反转率，收集起来后续处理
                 failedRecords.add(record);
                 statusMap.put(record.getMsgId(), status);
@@ -157,19 +202,39 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             }
         }
 
-        // 第三步：批量更新正常记录
-        if (!recordsToUpdate.isEmpty()) {
-            this.updateBatchById(recordsToUpdate);
+        if (skippedCount > 0) {
+            log.debug("跳过 {} 条仍在发送中的记录（状态未变化）", skippedCount);
         }
 
-        // 第四步：处理失败记录的反转逻辑
+        // 第五步：分批更新正常记录（避免单次事务过大）
+        if (!recordsToUpdate.isEmpty()) {
+            batchUpdate(recordsToUpdate);
+        }
+
+        // 第六步：处理失败记录的反转逻辑
         int flippedCount = 0;
         if (!failedRecords.isEmpty()) {
             flippedCount = applyFlipRate(failedRecords, statusMap);
             log.info("应用反转率，共处理 {} 条失败记录，其中 {} 条反转为成功", failedRecords.size(), flippedCount);
         }
 
-        log.info("更新状态报告成功，共更新 {} 条记录", recordsToUpdate.size() + flippedCount);
+        log.info("更新状态报告成功，实际更新 {} 条记录，跳过 {} 条未变化记录", recordsToUpdate.size() + flippedCount, skippedCount);
+    }
+
+    /**
+     * 分批执行批量更新，每批 UPDATE_BATCH_SIZE 条，避免单次事务过大
+     */
+    private static final int UPDATE_BATCH_SIZE = 500;
+
+    private void batchUpdate(List<SmsPhoneRecord> records) {
+        if (records.size() <= UPDATE_BATCH_SIZE) {
+            this.updateBatchById(records);
+        } else {
+            for (int i = 0; i < records.size(); i += UPDATE_BATCH_SIZE) {
+                int end = Math.min(i + UPDATE_BATCH_SIZE, records.size());
+                this.updateBatchById(records.subList(i, end));
+            }
+        }
     }
 
     @Override
