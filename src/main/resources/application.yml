@@ -9,7 +9,7 @@ spring:
   application:
     name: youlai-boot
   profiles:
-    active: dev
+    active: prod
   config:
     import: classpath:codegen.yml
   servlet:

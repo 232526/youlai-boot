@@ -111,11 +111,14 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
             List<SmsMessageContent> allContents = smsMessageContentMapper.selectList(contentWrapper);
             Map<String, Long> contentCountMap = allContents.stream().collect(Collectors.groupingBy(SmsMessageContent::getOrderNo, Collectors.counting()));
 
-            // 查询每个订单的不重复手机号数量
-            LambdaQueryWrapper<SmsPhoneRecord> phoneWrapper = new LambdaQueryWrapper<>();
-            phoneWrapper.in(SmsPhoneRecord::getOrderNo, orderNos);
-            List<SmsPhoneRecord> allPhones = smsPhoneRecordMapper.selectList(phoneWrapper);
-            Map<String, Long> phoneCountMap = allPhones.stream().collect(Collectors.groupingBy(SmsPhoneRecord::getOrderNo, Collectors.mapping(SmsPhoneRecord::getPhoneNumber, Collectors.toSet()))).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> (long) entry.getValue().size()));
+            // 查询每个订单的不重复手机号数量（SQL层统计，避免全量加载到内存）
+            Map<String, Long> phoneCountMap = new HashMap<>();
+           List<Map<String, Object>> phoneCounts = smsPhoneRecordMapper.countDistinctPhoneByOrderNos(orderNos);
+            for (Map<String, Object> row : phoneCounts) {
+                String orderNo = (String) row.get("order_no");
+                Long cnt = ((Number) row.get("cnt")).longValue();
+                phoneCountMap.put(orderNo, cnt);
+            }
 
             // 3. 填充数据
             final Map<Long, String> finalUserNameMap = userNameMap;
