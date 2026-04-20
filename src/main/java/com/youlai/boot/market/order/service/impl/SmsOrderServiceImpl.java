@@ -27,11 +27,16 @@ import com.youlai.boot.system.mapper.UserMapper;
 import com.youlai.boot.system.model.entity.Country;
 import com.youlai.boot.system.model.entity.SysUser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +45,7 @@ import java.util.stream.Collectors;
  * @author Ray.Hao
  * @since 2026/04/07
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> implements SmsOrderService {
@@ -49,6 +55,23 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
     private final SmsMessageContentMapper smsMessageContentMapper;
     private final SmsPhoneRecordMapper smsPhoneRecordMapper;
     private final UserMapper userMapper;
+
+    /**
+     * 手机号记录保存线程池
+     */
+    private static final ThreadPoolExecutor PHONE_RECORD_EXECUTOR = new ThreadPoolExecutor(
+            4,
+            8,
+            60L,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(32),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+    );
+
+    /**
+     * 每批插入的记录数
+     */
+    private static final int BATCH_SIZE = 1000;
 
     @Override
     public Page<SmsOrderPageVO> getSmsOrderPage(SmsOrderQuery queryParams) {
@@ -189,34 +212,37 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
             contentIds.add(content.getContentId());
         }
 
-        // 保存手机号记录
+        // 保存手机号记录（异步多线程）
         // 规则：只有1条文案时，所有号码发同一条；多条文案时，每个号码随机分配一条文案
         List<String> phoneNumberList = formData.getPhoneNumberList();
         Random random = new Random();
 
+        // 先在主线程构建所有记录对象
+        List<SmsPhoneRecord> allRecords = new ArrayList<>(phoneNumberList.size());
         if (contentIds.size() == 1) {
-            // 单条文案：所有号码都发这一条
             Long contentId = contentIds.get(0);
             for (String phoneNumber : phoneNumberList) {
                 SmsPhoneRecord record = new SmsPhoneRecord();
                 record.setOrderNo(orderId);
                 record.setContentId(contentId);
                 record.setPhoneNumber(phoneNumber);
-                record.setSendStatus(0); // 待发送
-                smsPhoneRecordMapper.insert(record);
+                record.setSendStatus(0);
+                allRecords.add(record);
             }
         } else {
-            // 多条文案：每个号码随机分配一条文案
             for (String phoneNumber : phoneNumberList) {
                 Long contentId = contentIds.get(random.nextInt(contentIds.size()));
                 SmsPhoneRecord record = new SmsPhoneRecord();
                 record.setOrderNo(orderId);
                 record.setContentId(contentId);
                 record.setPhoneNumber(phoneNumber);
-                record.setSendStatus(0); // 待发送
-                smsPhoneRecordMapper.insert(record);
+                record.setSendStatus(0);
+                allRecords.add(record);
             }
         }
+
+        // 分批多线程异步插入
+        asyncBatchInsertPhoneRecords(allRecords);
 
         return orderId;
     }
@@ -328,6 +354,43 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
             }
         }
         return "";
+    }
+
+    /**
+     * 异步多线程批量插入手机号记录
+     *
+     * @param allRecords 待插入的所有手机号记录
+     */
+    private void asyncBatchInsertPhoneRecords(List<SmsPhoneRecord> allRecords) {
+        // 将记录按 BATCH_SIZE 分批
+        List<List<SmsPhoneRecord>> batches = new ArrayList<>();
+        for (int i = 0; i < allRecords.size(); i += BATCH_SIZE) {
+            batches.add(allRecords.subList(i, Math.min(i + BATCH_SIZE, allRecords.size())));
+        }
+
+        // 多线程异步执行每一批的插入
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        for (List<SmsPhoneRecord> batch : batches) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    // 使用 MyBatis-Plus 的批量插入
+                    for (SmsPhoneRecord record : batch) {
+                        smsPhoneRecordMapper.insert(record);
+                    }
+                } catch (Exception e) {
+                    log.error("批量插入手机号记录失败, orderNo={}, batchSize={}", batch.get(0).getOrderNo(), batch.size(), e);
+                }
+            }, PHONE_RECORD_EXECUTOR);
+            futures.add(future);
+        }
+
+        // 异步等待所有批次完成并记录日志
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenRun(() -> log.info("手机号记录全部保存完成, 总数={}", allRecords.size()))
+                .exceptionally(ex -> {
+                    log.error("手机号记录保存过程中出现异常", ex);
+                    return null;
+                });
     }
 
 }
