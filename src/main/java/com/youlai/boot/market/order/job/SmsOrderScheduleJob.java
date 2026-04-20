@@ -205,7 +205,7 @@ public class SmsOrderScheduleJob {
      * 4. 更新完成后统一检查相关订单状态
      */
     @PostConstruct
-    @Scheduled(initialDelay = 45000, fixedDelay = 120000)
+    @Scheduled(fixedDelay = 240000)
     public void queryAndUpdateReports() {
         log.debug("开始执行状态报告查询任务...");
 
@@ -213,7 +213,7 @@ public class SmsOrderScheduleJob {
             int totalProcessed = 0;
             int loopCount = 0;
 
-            while (loopCount < 100) {
+            while (loopCount < 10) {
                 // 轻量查询：仅获取去重的 msgId + channel + orderNo，不加载完整实体
                 List<Map<String, Object>> msgIdRecords = smsPhoneRecordMapper.selectDistinctMsgIdsForReport(MSG_ID_QUERY_LIMIT);
 
