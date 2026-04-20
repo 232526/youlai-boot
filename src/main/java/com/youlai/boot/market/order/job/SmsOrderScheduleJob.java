@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,6 +33,11 @@ public class SmsOrderScheduleJob {
     private final SmsOrderService smsOrderService;
     private final SmsPhoneRecordService smsPhoneRecordService;
     private final SmsChannelContext smsChannelContext;
+
+    /**
+     * 每批发送的最大手机号数量
+     */
+    private static final int SEND_BATCH_SIZE = 1000;
 
     /**
      * 定时检查并执行待发送的订单
@@ -101,35 +107,61 @@ public class SmsOrderScheduleJob {
         String channelCode = order.getChannel() != null ? order.getChannel() : "ONBUKA"; // 默认使用 ONBUKA
         SmsChannelStrategy strategy = smsChannelContext.getStrategy(channelCode);
 
-        log.info("使用短信渠道: {} 发送短信，订单ID: {}", strategy.getChannelName(), order.getId());
+        log.info("使用短信渠道: {} 发送短信，订单ID: {}, 手机号总数: {}", strategy.getChannelName(), order.getId(), phoneNumbers.size());
 
-        // 6. 调用短信发送接口
-        SmsChannelStrategy.SmsSendResult sendResult = strategy.sendSms(phoneNumbers, senderId, content);
+        // 6. 分批发送短信，每批最多 SEND_BATCH_SIZE 条
+        List<List<String>> batches = new ArrayList<>();
+        for (int i = 0; i < phoneNumbers.size(); i += SEND_BATCH_SIZE) {
+            batches.add(phoneNumbers.subList(i, Math.min(i + SEND_BATCH_SIZE, phoneNumbers.size())));
+        }
+
+        boolean allSuccess = true;
+        List<String> allMsgIds = new ArrayList<>();
+        String lastFailReason = null;
+
+        for (int batchIndex = 0; batchIndex < batches.size(); batchIndex++) {
+            List<String> batchPhones = batches.get(batchIndex);
+            log.info("订单 {} 发送第 {}/{} 批，本批数量: {}", order.getOrderNo(), batchIndex + 1, batches.size(), batchPhones.size());
+
+            SmsChannelStrategy.SmsSendResult sendResult = strategy.sendSms(batchPhones, senderId, content);
+
+            if (sendResult.success()) {
+                if (sendResult.msgIds() != null) {
+                    allMsgIds.addAll(sendResult.msgIds());
+                }
+                log.info("订单 {} 第 {}/{} 批发送成功，消息IDs: {}", order.getOrderNo(), batchIndex + 1, batches.size(), sendResult.msgIds());
+            } else {
+                allSuccess = false;
+                lastFailReason = sendResult.failReason() != null ? sendResult.failReason() : sendResult.message();
+                log.error("订单 {} 第 {}/{} 批发送失败，错误: {}", order.getOrderNo(), batchIndex + 1, batches.size(), lastFailReason);
+                break; // 某批失败后停止发送后续批次
+            }
+        }
 
         // 7. 更新订单状态和发送结果
-        if (sendResult.success()) {
+        if (allSuccess) {
             // 更新订单状态为发送中
             order.setStatus(OrderStatusEnum.SENDING.getValue());
             boolean updated = smsOrderService.updateById(order);
 
             if (updated) {
-                log.info("订单状态已更新为发送中，订单ID: {}, 消息IDs: {}", order.getOrderNo(), sendResult.msgIds());
+                log.info("订单状态已更新为发送中，订单ID: {}, 消息IDs数量: {}", order.getOrderNo(), allMsgIds.size());
 
                 // 保存消息ID到发送记录表
-                smsPhoneRecordService.saveSendResult(order.getOrderNo(), sendResult, channelCode);
+                SmsChannelStrategy.SmsSendResult aggregatedResult = new SmsChannelStrategy.SmsSendResult(true, "success", allMsgIds);
+                smsPhoneRecordService.saveSendResult(order.getOrderNo(), aggregatedResult, channelCode);
             } else {
                 log.warn("订单状态更新失败，订单ID: {}", order.getOrderNo());
             }
         } else {
-            log.error("短信发送失败，订单ID: {}, 错误信息: {}", order.getOrderNo(), sendResult.message());
+            log.error("短信发送失败，订单ID: {}, 错误信息: {}", order.getOrderNo(), lastFailReason);
             // 更新订单状态为发送失败，并保存失败原因
             order.setStatus(OrderStatusEnum.FAILED.getValue());
-            order.setFailMsg(sendResult.failReason() != null ? sendResult.failReason() : sendResult.message());
+            order.setFailMsg(lastFailReason);
             smsOrderService.updateById(order);
 
             // 更新该订单下所有手机号记录的状态为发送失败
-            String failReason = sendResult.failReason() != null ? sendResult.failReason() : sendResult.message();
-            smsPhoneRecordService.updateFailedRecords(order.getOrderNo(), channelCode, failReason);
+            smsPhoneRecordService.updateFailedRecords(order.getOrderNo(), channelCode, lastFailReason);
         }
     }
 
