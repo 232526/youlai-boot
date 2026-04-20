@@ -467,19 +467,20 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         SmsOrder order = smsOrderService.getOne(orderWrapper);
         if (order != null) {
             Integer oldStatus = order.getStatus();
-            order.setStatus(OrderStatusEnum.COMPLETED.getValue());
             order.setSuccessCount((int) successCount);
             order.setFailCount((int) failCount);
             order.setReportCount((int) (successCount + failCount));
             order.setPaidCount((int) successCount);
-            smsOrderService.updateById(order);
-
             // 如果订单从非完成状态变为完成状态，生成流水记录
             if (pendingCount == 0) {
+                order.setStatus(OrderStatusEnum.COMPLETED.getValue());
+                smsOrderService.updateById(order);
                 log.info("订单 {} 所有短信发送完成，成功: {}, 失败: {}", orderNo, successCount, failCount);
                 if (!OrderStatusEnum.COMPLETED.getValue().equals(oldStatus)) {
                     createTransactionRecord(order, (int) successCount);
                 }
+            } else {
+                smsOrderService.updateById(order);
             }
         }
 
