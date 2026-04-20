@@ -71,32 +71,34 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
         List<String> msgIds = sendResult.msgIds();
 
-        // 查询该订单的所有手机号记录
+        // 只查主键ID，避免加载完整实体到内存
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo).isNull(SmsPhoneRecord::getMsgId); // 只更新还没有msgId的记录
+        wrapper.select(SmsPhoneRecord::getRecordId)
+                .eq(SmsPhoneRecord::getOrderNo, orderNo)
+                .isNull(SmsPhoneRecord::getMsgId) // 只更新还没有msgId的记录
+                .last("LIMIT " + msgIds.size());
 
-        List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(wrapper);
+        List<Object> recordIds = smsPhoneRecordMapper.selectObjs(wrapper);
 
-        if (CollUtil.isEmpty(records)) {
+        if (CollUtil.isEmpty(recordIds)) {
             log.warn("未找到需要更新的手机号记录，订单编号: {}", orderNo);
             return;
         }
 
-        // 将msgId分配给对应的记录（按顺序）
-        for (int i = 0; i < records.size() && i < msgIds.size(); i++) {
-            SmsPhoneRecord record = records.get(i);
-            record.setMsgId(msgIds.get(i));
-            record.setChannel(channelCode);
-            record.setSendStatus(1); // 发送中（等待状态报告）
-            record.setSendTime(LocalDateTime.now());
+        // 根据主键ID直接更新，每条记录分配对应的msgId
+        LocalDateTime now = LocalDateTime.now();
+        int updateCount = Math.min(recordIds.size(), msgIds.size());
+        for (int i = 0; i < updateCount; i++) {
+            LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
+            updateWrapper.eq(SmsPhoneRecord::getRecordId, recordIds.get(i))
+                    .set(SmsPhoneRecord::getMsgId, msgIds.get(i))
+                    .set(SmsPhoneRecord::getChannel, channelCode)
+                    .set(SmsPhoneRecord::getSendStatus, 1) // 发送中（等待状态报告）
+                    .set(SmsPhoneRecord::getSendTime, now);
+            smsPhoneRecordMapper.update(null, updateWrapper);
         }
 
-        // 批量更新
-        for (SmsPhoneRecord record : records) {
-            smsPhoneRecordMapper.updateById(record);
-        }
-
-        log.info("保存发送结果成功，订单编号: {}, 更新记录数: {}", orderNo, records.size());
+        log.info("保存发送结果成功，订单编号: {}, 更新记录数: {}", orderNo, updateCount);
     }
 
     @Override
@@ -527,33 +529,23 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateFailedRecords(String orderNo, String channelCode, String failReason) {
-        // 查询该订单下所有待发送的手机号记录
-        LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SmsPhoneRecord::getOrderNo, orderNo).eq(SmsPhoneRecord::getSendStatus, 0); // 只更新待发送的记录
+        // 直接通过 UPDATE 语句批量更新，避免全量查询到内存
+        LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
+                .eq(SmsPhoneRecord::getSendStatus, 0) // 只更新待发送的记录
+                .set(SmsPhoneRecord::getChannel, channelCode)
+                .set(SmsPhoneRecord::getSendStatus, -1) // 发送失败
+                .set(SmsPhoneRecord::getFailReason, failReason)
+                .set(SmsPhoneRecord::getSendTime, LocalDateTime.now());
 
-        List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(wrapper);
+        int updatedCount = smsPhoneRecordMapper.update(null, updateWrapper);
 
-        if (CollUtil.isEmpty(records)) {
+        if (updatedCount == 0) {
             log.warn("未找到需要更新的待发送记录，订单编号: {}", orderNo);
             return;
         }
 
-        LocalDateTime now = LocalDateTime.now();
-
-        // 批量更新为发送失败状态
-        for (SmsPhoneRecord record : records) {
-            record.setChannel(channelCode); // 设置渠道代码
-            record.setSendStatus(-1); // 发送失败
-            record.setFailReason(failReason);
-            record.setSendTime(now);
-        }
-
-        // 批量更新数据库
-        for (SmsPhoneRecord record : records) {
-            smsPhoneRecordMapper.updateById(record);
-        }
-
-        log.info("批量更新发送失败记录成功，订单编号: {}, 渠道: {}, 更新记录数: {}, 失败原因: {}", orderNo, channelCode, records.size(), failReason);
+        log.info("批量更新发送失败记录成功，订单编号: {}, 渠道: {}, 更新记录数: {}, 失败原因: {}", orderNo, channelCode, updatedCount, failReason);
     }
 
 }
