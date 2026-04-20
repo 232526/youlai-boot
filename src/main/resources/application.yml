@@ -2,6 +2,8 @@ server:
   tomcat:
     max-http-form-content-size: 50MB
     max-swallow-size: 50MB
+    connection-timeout: 600000
+    keep-alive-timeout: 600000
 
 spring:
   application:
