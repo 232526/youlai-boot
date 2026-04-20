@@ -171,7 +171,7 @@ public class SmsOrderScheduleJob {
         } else {
             log.error("短信发送失败，订单ID: {}, 错误信息: {}", order.getOrderNo(), lastFailReason);
             order.setStatus(OrderStatusEnum.FAILED.getValue());
-            order.setFailMsg(lastFailReason);
+            order.setFailMsg(lastFailReason.substring(0, Math.min(lastFailReason.length(), 255)));
             smsOrderService.updateById(order);
 
             // 更新该订单下剩余未发送的手机号记录状态为发送失败

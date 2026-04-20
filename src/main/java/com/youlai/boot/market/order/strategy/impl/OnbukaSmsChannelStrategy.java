@@ -69,9 +69,14 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
                 .header("Timestamp", datetime)
                 .header("Api-Key", APP_KEY);
 
+            // 每个号码添加+91区号前缀
+            List<String> numbersWithPrefix = phoneNumbers.stream()
+                .map(num -> num.startsWith("+91") ? num : "+91" + num)
+                .toList();
+
             final String params = JSONUtil.createObj()
                 .set("appId", APP_ID)
-                .set("numbers", String.join(",", phoneNumbers))
+                .set("numbers", String.join(",", numbersWithPrefix))
                 .set("content", content)
                 .set("senderId", senderId)
                 .toString();
