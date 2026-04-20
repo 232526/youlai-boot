@@ -1,3 +1,8 @@
+server:
+  tomcat:
+    max-http-form-content-size: 50MB
+    max-swallow-size: 50MB
+
 spring:
   application:
     name: youlai-boot

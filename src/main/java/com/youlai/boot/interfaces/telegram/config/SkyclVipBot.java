@@ -18,6 +18,8 @@ import org.telegram.telegrambots.meta.api.methods.updates.DeleteWebhook;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * Telegram Long Polling Bot
  * 用于本地开发和测试,不需要 HTTPS
@@ -34,6 +36,9 @@ public class SkyclVipBot extends TelegramLongPollingBot {
     private final TelegramBotProperties botProperties;
     private final TelegramBotService botService;
     private final Environment environment;
+
+    /** 防止重复注册 */
+    private final AtomicBoolean registered = new AtomicBoolean(false);
 
     @Override
     public String getBotUsername() {
@@ -89,6 +94,12 @@ public class SkyclVipBot extends TelegramLongPollingBot {
     @EventListener(ApplicationReadyEvent.class)
     @Async
     public void registerBot() {
+        // 防止重复注册
+        if (!registered.compareAndSet(false, true)) {
+            log.warn("⚠️ Telegram Bot 已注册，跳过重复注册");
+            return;
+        }
+
         try {
             // 判断是否为开发环境
             String activeProfile = environment.getActiveProfiles().length > 0
@@ -98,55 +109,40 @@ public class SkyclVipBot extends TelegramLongPollingBot {
             boolean isDevEnvironment = "dev".equals(activeProfile) || "local".equals(activeProfile);
 
             if (isDevEnvironment) {
-                return;
-//                // 配置代理 (Clash SOCKS5 代理) - 仅开发环境
-//                String proxyHost = "127.0.0.1";
-//                int socksProxyPort = 7891; // Clash SOCKS5 代理端口
-//
-//                log.info("🔧 开始配置 Telegram Bot 代理...");
-//                log.info("   - SOCKS5 代理: {}: {}", proxyHost, socksProxyPort);
-//
-//                // 配置系统属性 (TelegramBots 6.x 使用 HttpClient，会自动读取系统代理)
-//                System.setProperty("socksProxyHost", proxyHost);
-//                System.setProperty("socksProxyPort", String.valueOf(socksProxyPort));
-//
-//                // 设置 HTTP 代理 (备用)
-//                System.setProperty("http.proxyHost", proxyHost);
-//                System.setProperty("http.proxyPort", "7890");
-//                System.setProperty("https.proxyHost", proxyHost);
-//                System.setProperty("https.proxyPort", "7890");
+                // 配置代理 (Clash SOCKS5 代理) - 仅开发环境
+                String proxyHost = "127.0.0.1";
+                int socksProxyPort = 7891;
 
-//                log.info("✅ Telegram Bot 代理配置完成");
+                log.info("🔧 开始配置 Telegram Bot 代理...");
+                System.setProperty("socksProxyHost", proxyHost);
+                System.setProperty("socksProxyPort", String.valueOf(socksProxyPort));
+                System.setProperty("http.proxyHost", proxyHost);
+                System.setProperty("http.proxyPort", "7890");
+                System.setProperty("https.proxyHost", proxyHost);
+                System.setProperty("https.proxyPort", "7890");
+                log.info("✅ Telegram Bot 代理配置完成");
             } else {
-                log.info("🌐 生产环境，不使用代理，直接连接 Telegram API");
+                log.info("🌐 生产环境，直接连接 Telegram API");
             }
 
-            // 注册前先删除可能存在的 Webhook，避免 409 冲突
+            // 先删除 Webhook 并通知 Telegram 释放旧的 getUpdates 连接
             DeleteWebhook deleteWebhook = new DeleteWebhook();
-            deleteWebhook.setDropPendingUpdates(true);
+            deleteWebhook.setDropPendingUpdates(false);
             execute(deleteWebhook);
-            log.info("🧹 已清除旧的 Webhook/Polling 连接");
+            log.info("🧹 已通知 Telegram 清除旧连接");
 
-            // 短暂等待，确保旧连接释放
-            Thread.sleep(1000);
+            // 等待旧的 Long Polling 连接超时（Telegram 端超时约25-30秒）
+            log.info("⏳ 等待 35 秒让旧的 polling 连接自然超时...");
+            Thread.sleep(35_000);
 
             // 注册 Bot
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
             botsApi.registerBot(this);
 
             log.info("✅ Telegram Long Polling Bot 已启动: @{}", botProperties.getUsername());
-            log.info("📱 可以在 Telegram 中搜索 @{} 开始使用", botProperties.getUsername());
         } catch (Exception e) {
-            log.error("❌ Telegram Long Polling Bot 启动失败: {}", e.getMessage());
-            log.error(" 错误类型: {}", e.getClass().getName());
-            if (e.getCause() != null) {
-                log.error(" 根本原因: {}", e.getCause().getMessage());
-            }
-            log.error("\n💡 排查步骤:");
-            log.error("1. 确认 Clash 是否正常运行且 SOCKS5 端口为 7891");
-            log.error("2. 确认 Clash 代理模式已开启 (规则模式/全局模式)");
-            log.error("3. 在 PowerShell 中测试: curl.exe -x socks5://127.0.0.1:7891 https://api.telegram.org");
-            log.error("4. 如果 SOCKS5 不行,尝试 HTTP 代理 (端口 7890)");
+            registered.set(false); // 注册失败，允许重试
+            log.error("❌ Telegram Long Polling Bot 启动失败: {}", e.getMessage(), e);
         }
     }
 }
