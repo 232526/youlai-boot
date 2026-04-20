@@ -14,6 +14,7 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updates.DeleteWebhook;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
@@ -97,27 +98,37 @@ public class SkyclVipBot extends TelegramLongPollingBot {
             boolean isDevEnvironment = "dev".equals(activeProfile) || "local".equals(activeProfile);
 
             if (isDevEnvironment) {
-                // 配置代理 (Clash SOCKS5 代理) - 仅开发环境
-                String proxyHost = "127.0.0.1";
-                int socksProxyPort = 7891; // Clash SOCKS5 代理端口
+                return;
+//                // 配置代理 (Clash SOCKS5 代理) - 仅开发环境
+//                String proxyHost = "127.0.0.1";
+//                int socksProxyPort = 7891; // Clash SOCKS5 代理端口
+//
+//                log.info("🔧 开始配置 Telegram Bot 代理...");
+//                log.info("   - SOCKS5 代理: {}: {}", proxyHost, socksProxyPort);
+//
+//                // 配置系统属性 (TelegramBots 6.x 使用 HttpClient，会自动读取系统代理)
+//                System.setProperty("socksProxyHost", proxyHost);
+//                System.setProperty("socksProxyPort", String.valueOf(socksProxyPort));
+//
+//                // 设置 HTTP 代理 (备用)
+//                System.setProperty("http.proxyHost", proxyHost);
+//                System.setProperty("http.proxyPort", "7890");
+//                System.setProperty("https.proxyHost", proxyHost);
+//                System.setProperty("https.proxyPort", "7890");
 
-                log.info("🔧 开始配置 Telegram Bot 代理...");
-                log.info("   - SOCKS5 代理: {}: {}", proxyHost, socksProxyPort);
-
-                // 配置系统属性 (TelegramBots 6.x 使用 HttpClient，会自动读取系统代理)
-                System.setProperty("socksProxyHost", proxyHost);
-                System.setProperty("socksProxyPort", String.valueOf(socksProxyPort));
-
-                // 设置 HTTP 代理 (备用)
-                System.setProperty("http.proxyHost", proxyHost);
-                System.setProperty("http.proxyPort", "7890");
-                System.setProperty("https.proxyHost", proxyHost);
-                System.setProperty("https.proxyPort", "7890");
-
-                log.info("✅ Telegram Bot 代理配置完成");
+//                log.info("✅ Telegram Bot 代理配置完成");
             } else {
                 log.info("🌐 生产环境，不使用代理，直接连接 Telegram API");
             }
+
+            // 注册前先删除可能存在的 Webhook，避免 409 冲突
+            DeleteWebhook deleteWebhook = new DeleteWebhook();
+            deleteWebhook.setDropPendingUpdates(true);
+            execute(deleteWebhook);
+            log.info("🧹 已清除旧的 Webhook/Polling 连接");
+
+            // 短暂等待，确保旧连接释放
+            Thread.sleep(1000);
 
             // 注册 Bot
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
