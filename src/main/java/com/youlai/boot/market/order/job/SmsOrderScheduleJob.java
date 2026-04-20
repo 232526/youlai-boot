@@ -199,7 +199,7 @@ public class SmsOrderScheduleJob {
                 }
 
                 // 每次查第1页，因为处理完的记录 sendStatus 会被更新，不再满足查询条件
-                Page<SmsPhoneRecord> page = new Page<>(1, SEND_BATCH_SIZE, false);
+                Page<SmsPhoneRecord> page = new Page<>(1, 100, false);
                 LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
                 wrapper.eq(SmsPhoneRecord::getSendStatus, 1)  // 发送中状态
                     .isNotNull(SmsPhoneRecord::getMsgId)       // 必须有msgId才能查询
