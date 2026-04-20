@@ -190,9 +190,14 @@ public class SmsOrderScheduleJob {
 
         try {
             int totalProcessed = 0;
+            int whileTotal = 0;
 
             // 分页查询发送中的记录，每页 SEND_BATCH_SIZE 条，避免全量加载导致内存溢出
             while (true) {
+                if (whileTotal > 10) {
+                    break;
+                }
+
                 // 每次查第1页，因为处理完的记录 sendStatus 会被更新，不再满足查询条件
                 Page<SmsPhoneRecord> page = new Page<>(1, SEND_BATCH_SIZE, false);
                 LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
@@ -262,6 +267,7 @@ public class SmsOrderScheduleJob {
                 if (batchRecords.size() < SEND_BATCH_SIZE) {
                     break;
                 }
+                whileTotal++;
             }
 
             if (totalProcessed > 0) {
