@@ -194,7 +194,7 @@ public class SmsOrderScheduleJob {
 
             // 分页查询发送中的记录，每页 SEND_BATCH_SIZE 条，避免全量加载导致内存溢出
             while (true) {
-                if (whileTotal > 20) {
+                if (whileTotal > 100) {
                     break;
                 }
 
