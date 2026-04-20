@@ -205,7 +205,7 @@ public class SmsOrderScheduleJob {
      * 4. 更新完成后统一检查相关订单状态
      */
     @PostConstruct
-    @Scheduled(fixedDelay = 120000)
+    @Scheduled(initialDelay = 45000, fixedDelay = 120000)
     public void queryAndUpdateReports() {
         log.debug("开始执行状态报告查询任务...");
 
