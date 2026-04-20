@@ -74,9 +74,9 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         // 只查主键ID，避免加载完整实体到内存
         LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.select(SmsPhoneRecord::getRecordId)
-                .eq(SmsPhoneRecord::getOrderNo, orderNo)
-                .isNull(SmsPhoneRecord::getMsgId) // 只更新还没有msgId的记录
-                .last("LIMIT " + msgIds.size());
+            .eq(SmsPhoneRecord::getOrderNo, orderNo)
+            .isNull(SmsPhoneRecord::getMsgId) // 只更新还没有msgId的记录
+            .last("LIMIT " + msgIds.size());
 
         List<Object> recordIds = smsPhoneRecordMapper.selectObjs(wrapper);
 
@@ -116,9 +116,9 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
         // 第一步：收集所有有效 msgId，一次批量查询对应记录
         List<String> validMsgIds = statusList.stream()
-                .map(SmsChannelStrategy.SmsReportResult.SmsStatus::msgId)
-                .filter(StrUtil::isNotBlank)
-                .collect(Collectors.toList());
+            .map(SmsChannelStrategy.SmsReportResult.SmsStatus::msgId)
+            .filter(StrUtil::isNotBlank)
+            .collect(Collectors.toList());
 
         if (CollUtil.isEmpty(validMsgIds)) {
             return;
@@ -128,7 +128,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         batchWrapper.in(SmsPhoneRecord::getMsgId, validMsgIds);
         List<SmsPhoneRecord> records = smsPhoneRecordMapper.selectList(batchWrapper);
         Map<String, SmsPhoneRecord> recordMap = records.stream()
-                .collect(Collectors.toMap(SmsPhoneRecord::getMsgId, r -> r));
+            .collect(Collectors.toMap(SmsPhoneRecord::getMsgId, r -> r));
 
         // 第二步：分拣记录——直接更新 vs 需要反转
         List<SmsPhoneRecord> recordsToUpdate = new ArrayList<>();
@@ -282,22 +282,22 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         if (CollUtil.isEmpty(failedRecords)) {
             return 0;
         }
-    
+
         // 按用户分组，因为不同用户的反转率可能不同
         Map<Long, List<SmsPhoneRecord>> recordsByUser = failedRecords.stream().collect(Collectors.groupingBy(SmsPhoneRecord::getCreateBy));
-    
+
         List<SmsPhoneRecord> allUpdates = new ArrayList<>();
         int totalFlippedCount = 0;
-    
+
         // 遇历每个用户的失败记录
         for (Map.Entry<Long, List<SmsPhoneRecord>> entry : recordsByUser.entrySet()) {
             Long userId = entry.getKey();
             List<SmsPhoneRecord> userFailedRecords = entry.getValue();
-    
+
             // 获取用户信息
             SysUser user = userService.getUserById(userId);
             Integer flipRate = user.getFlipRate();
-    
+
             if (flipRate == null || flipRate <= 0) {
                 // 没有设置反转率或反转率为0，全部标记为失败
                 for (SmsPhoneRecord record : userFailedRecords) {
@@ -306,19 +306,19 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 }
                 continue;
             }
-    
+
             // 计算需要反转的数量
             int totalCount = userFailedRecords.size();
             int flipCount = (int) Math.round(totalCount * flipRate / 100.0);
             // 确保至少有一条可以反转（如果有失败记录且反转率>0）
             flipCount = Math.min(flipCount, totalCount);
             int failCount = totalCount - flipCount;
-    
+
             log.info("用户 {} 的失败记录应用反转率：总数={}, 反转率={}%, 反转成功数={}, 保持失败数={}", userId, totalCount, flipRate, flipCount, failCount);
-    
+
             // 随机打乱记录顺序，确保公平性
             Collections.shuffle(userFailedRecords);
-    
+
             // 前 flipCount 条反转为成功
             for (int i = 0; i < flipCount; i++) {
                 SmsPhoneRecord record = userFailedRecords.get(i);
@@ -326,7 +326,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 allUpdates.add(buildFlipUpdateEntity(record, status, user));
             }
             totalFlippedCount += flipCount;
-    
+
             // 剩余的保持失败
             for (int i = flipCount; i < totalCount; i++) {
                 SmsPhoneRecord record = userFailedRecords.get(i);
@@ -334,15 +334,15 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
                 allUpdates.add(buildUpdateEntity(record, status, -1, user));
             }
         }
-    
+
         // 批量更新全部反转和失败记录
         if (!allUpdates.isEmpty()) {
             this.updateBatchById(allUpdates);
         }
-    
+
         return totalFlippedCount;
     }
-    
+
     /**
      * 构建反转成功记录的更新实体
      *
@@ -357,13 +357,13 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         entity.setReceiveTime(parseReceiveTime(status.receiveTime()));
         entity.setSendStatus(2); // 反转为成功
         entity.setFlipFailReason(status.statusDesc());
-    
+
         SmsChannelStrategy.SmsReportResult.PriceDetail priceDetail = status.priceDetail();
         if (priceDetail != null) {
             BigDecimal outUnitPrice = user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : BigDecimal.ZERO;
             BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.valueOf(1);
             BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
-    
+
             entity.setPayAmount(priceDetail.payAmount());
             entity.setCurrency(priceDetail.currency());
             entity.setChargeCount(chargeCount.intValue());
@@ -377,10 +377,10 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             entity.setIsFlip(1);
             entity.setOutPayAmount(outPayAmount);
         }
-    
+
         return entity;
     }
-    
+
     /**
      * 构建常规记录的更新实体
      *
@@ -394,12 +394,12 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         SmsPhoneRecord entity = new SmsPhoneRecord();
         entity.setRecordId(record.getRecordId());
         entity.setReceiveTime(parseReceiveTime(status.receiveTime()));
-    
+
         // 更新发送状态
         if (sendStatus != null) {
             entity.setSendStatus(sendStatus);
         }
-    
+
         // 更新失败原因（只有失败时才设置）
         if (sendStatus != null && sendStatus == -1) {
             String reason = status.statusDesc();
@@ -410,14 +410,14 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             // 成功时清空失败原因（failReason 已配置 ALWAYS 更新策略，支持设为 null）
             entity.setFailReason(null);
         }
-    
+
         // 更新费用详情
         SmsChannelStrategy.SmsReportResult.PriceDetail priceDetail = status.priceDetail();
         if (priceDetail != null) {
             BigDecimal outUnitPrice = user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : BigDecimal.ZERO;
             BigDecimal chargeCount = priceDetail.chargeCount() != null ? BigDecimal.valueOf(priceDetail.chargeCount()) : BigDecimal.ZERO;
             BigDecimal outPayAmount = outUnitPrice.multiply(chargeCount);
-    
+
             entity.setPayAmount(priceDetail.payAmount());
             entity.setCurrency(priceDetail.currency());
             entity.setChargeCount(priceDetail.chargeCount());
@@ -430,7 +430,7 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
             entity.setOutUnitPrice(user.getSmsUnitPrice() != null ? BigDecimal.valueOf(user.getSmsUnitPrice()) : null);
             entity.setOutPayAmount(outPayAmount);
         }
-    
+
         return entity;
     }
 
@@ -451,44 +451,45 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
 
         // 解析统计结果
         Map<Integer, Long> statusCount = statusCountList.stream()
-                .collect(Collectors.toMap(
-                        m -> (Integer) m.get("send_status"),
-                        m -> ((Number) m.get("count")).longValue()
-                ));
+            .collect(Collectors.toMap(
+                m -> (Integer) m.get("send_status"),
+                m -> ((Number) m.get("count")).longValue()
+            ));
 
         long successCount = statusCount.getOrDefault(2, 0L);  // 发送成功
         long failCount = statusCount.getOrDefault(-1, 0L);   // 发送失败
         long pendingCount = statusCount.getOrDefault(0, 0L) + statusCount.getOrDefault(1, 0L); // 未发送 + 发送中
 
         // 如果所有记录都已完成（成功或失败），更新订单状态
-        if (pendingCount == 0) {
-            LambdaQueryWrapper<SmsOrder> orderWrapper = new LambdaQueryWrapper<>();
-            orderWrapper.eq(SmsOrder::getOrderNo, orderNo);
-            SmsOrder order = smsOrderService.getOne(orderWrapper);
-            if (order != null) {
-                Integer oldStatus = order.getStatus();
-                order.setStatus(OrderStatusEnum.COMPLETED.getValue());
-                order.setSuccessCount((int) successCount);
-                order.setFailCount((int) failCount);
-                order.setReportCount((int) (successCount + failCount));
-                order.setPaidCount((int) successCount);
-                smsOrderService.updateById(order);
 
+        LambdaQueryWrapper<SmsOrder> orderWrapper = new LambdaQueryWrapper<>();
+        orderWrapper.eq(SmsOrder::getOrderNo, orderNo);
+        SmsOrder order = smsOrderService.getOne(orderWrapper);
+        if (order != null) {
+            Integer oldStatus = order.getStatus();
+            order.setStatus(OrderStatusEnum.COMPLETED.getValue());
+            order.setSuccessCount((int) successCount);
+            order.setFailCount((int) failCount);
+            order.setReportCount((int) (successCount + failCount));
+            order.setPaidCount((int) successCount);
+            smsOrderService.updateById(order);
+
+            // 如果订单从非完成状态变为完成状态，生成流水记录
+            if (pendingCount == 0) {
                 log.info("订单 {} 所有短信发送完成，成功: {}, 失败: {}", orderNo, successCount, failCount);
-
-                // 如果订单从非完成状态变为完成状态，生成流水记录
                 if (!OrderStatusEnum.COMPLETED.getValue().equals(oldStatus)) {
                     createTransactionRecord(order, (int) successCount);
                 }
             }
         }
+
     }
 
     /**
      * 创建交易流水记录
      *
-     * @param order         订单信息
-     * @param successCount  成功发送数量
+     * @param order        订单信息
+     * @param successCount 成功发送数量
      */
     private void createTransactionRecord(SmsOrder order, int successCount) {
         try {
@@ -566,11 +567,11 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         // 直接通过 UPDATE 语句批量更新，避免全量查询到内存
         LambdaUpdateWrapper<SmsPhoneRecord> updateWrapper = new LambdaUpdateWrapper<>();
         updateWrapper.eq(SmsPhoneRecord::getOrderNo, orderNo)
-                .eq(SmsPhoneRecord::getSendStatus, 0) // 只更新待发送的记录
-                .set(SmsPhoneRecord::getChannel, channelCode)
-                .set(SmsPhoneRecord::getSendStatus, -1) // 发送失败
-                .set(SmsPhoneRecord::getFailReason, failReason)
-                .set(SmsPhoneRecord::getSendTime, LocalDateTime.now());
+            .eq(SmsPhoneRecord::getSendStatus, 0) // 只更新待发送的记录
+            .set(SmsPhoneRecord::getChannel, channelCode)
+            .set(SmsPhoneRecord::getSendStatus, -1) // 发送失败
+            .set(SmsPhoneRecord::getFailReason, failReason)
+            .set(SmsPhoneRecord::getSendTime, LocalDateTime.now());
 
         int updatedCount = smsPhoneRecordMapper.update(null, updateWrapper);
 

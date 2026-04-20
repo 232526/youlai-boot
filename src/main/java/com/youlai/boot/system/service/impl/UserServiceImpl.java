@@ -36,6 +36,9 @@ import com.youlai.boot.system.model.vo.UserProfileVO;
 import com.youlai.boot.system.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -79,6 +82,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     private final DictItemService dictItemService;
 
     private final UserConverter userConverter;
+
+    private final ObjectMapper objectMapper = new ObjectMapper()
+        .registerModule(new JavaTimeModule())
+        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final ChannelMapper channelMapper;
 
@@ -747,9 +754,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 先从缓存中获取
         Object cached = redisTemplate.opsForValue().get(cacheKey);
-        if (cached instanceof SysUser) {
-            log.debug("从缓存中获取用户信息，userId: {}", userId);
-            return (SysUser) cached;
+        if (cached != null) {
+            if (cached instanceof SysUser) {
+                return (SysUser) cached;
+            }
+            // Redis 反序列化返回 LinkedHashMap，需要转换
+            try {
+                SysUser user = objectMapper.convertValue(cached, SysUser.class);
+                return user;
+            } catch (Exception e) {
+                log.error("缓存反序列化转换失败，将查库，userId: {}", userId, e);
+            }
         }
 
         // 缓存中没有，从数据库查询
@@ -758,7 +773,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         // 存入缓存，设置5分钟过期时间
         if (user != null) {
             redisTemplate.opsForValue().set(cacheKey, user, 5, TimeUnit.MINUTES);
-            log.debug("用户信息已缓存，userId: {}", userId);
         }
 
         return user;
