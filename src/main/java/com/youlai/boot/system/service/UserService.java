@@ -194,11 +194,19 @@ public interface UserService extends IService<SysUser> {
     }
 
     /**
-     * 根据用户ID获取用户信息（带缓存，缓存1分钟）
+     * 根据用户ID获取用户信息（带缓存，缓存5分钟）
      *
      * @param userId 用户ID
      * @return {@link SysUser} 用户信息
      */
     SysUser getUserById(Long userId);
+
+    /**
+     * 根据用户ID获取用户信息（不走缓存，直接查库，用于需要实时余额等场景）
+     *
+     * @param userId 用户ID
+     * @return {@link SysUser} 用户信息
+     */
+    SysUser getUserByIdNoCache(Long userId);
 
 }

@@ -71,7 +71,9 @@ public class SmsPhoneRecord implements Serializable {
 
     /**
      * 失败原因（失败时记录）
+     * updateStrategy = ALWAYS：允许批量更新时将该字段置为 null（发送成功时清空）
      */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String failReason;
 
     /**

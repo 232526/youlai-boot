@@ -49,4 +49,13 @@ public interface SmsPhoneRecordMapper extends BaseMapper<SmsPhoneRecord> {
             "</script>")
     List<Map<String, Object>> countDistinctPhoneByOrderNos(@Param("orderNos") List<String> orderNos);
 
+    /**
+     * 统计订单下各发送状态的数量
+     *
+     * @param orderNo 订单编号
+     * @return 发送状态 -> 数量 的映射列表，每条记录包含 send_status 和 count 字段
+     */
+    @Select("SELECT send_status, COUNT(*) as count FROM sms_phone_record WHERE order_no = #{orderNo} AND is_deleted = 0 GROUP BY send_status")
+    List<Map<String, Object>> countByOrderNoGroupByStatus(@Param("orderNo") String orderNo);
+
 }

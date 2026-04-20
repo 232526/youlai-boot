@@ -194,15 +194,15 @@ public class SmsOrderScheduleJob {
 
             // 分页查询发送中的记录，每页 SEND_BATCH_SIZE 条，避免全量加载导致内存溢出
             while (true) {
-                if (whileTotal > 10) {
+                if (whileTotal > 20) {
                     break;
                 }
 
                 // 每次查第1页，因为处理完的记录 sendStatus 会被更新，不再满足查询条件
-                Page<SmsPhoneRecord> page = new Page<>(1, 100, false);
+                Page<SmsPhoneRecord> page = new Page<>(1, 200, false);
                 LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
                 wrapper.eq(SmsPhoneRecord::getSendStatus, 1)  // 发送中状态
-                    .isNotNull(SmsPhoneRecord::getMsgId)       // 必须有msgId才能查询
+                    .isNotNull(SmsPhoneRecord::getMsgId)       // 必须有msgId才能查询HTTP请求失败
                     .orderByAsc(SmsPhoneRecord::getOrderNo);
                 Page<SmsPhoneRecord> recordPage = smsPhoneRecordService.page(page, wrapper);
 

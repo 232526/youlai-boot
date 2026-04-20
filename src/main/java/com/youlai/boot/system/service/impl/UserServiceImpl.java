@@ -732,7 +732,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     }
 
     /**
-     * 根据用户ID获取用户信息
+     * 根据用户ID获取用户信息（带缓存，缓存5分钟）
      *
      * @param userId 用户ID
      * @return {@link SysUser} 用户信息
@@ -755,13 +755,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         // 缓存中没有，从数据库查询
         SysUser user = this.getById(userId);
 
-        // 存入缓存，设置1分钟过期时间
+        // 存入缓存，设置5分钟过期时间
         if (user != null) {
-            redisTemplate.opsForValue().set(cacheKey, user, 30, TimeUnit.SECONDS);
+            redisTemplate.opsForValue().set(cacheKey, user, 5, TimeUnit.MINUTES);
             log.debug("用户信息已缓存，userId: {}", userId);
         }
 
         return user;
+    }
+
+    /**
+     * 根据用户ID获取用户信息（不走缓存，直接查库，用于需要实时余额等场景）
+     *
+     * @param userId 用户ID
+     * @return {@link SysUser} 用户信息
+     */
+    @Override
+    public SysUser getUserByIdNoCache(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return this.getById(userId);
     }
 
 
