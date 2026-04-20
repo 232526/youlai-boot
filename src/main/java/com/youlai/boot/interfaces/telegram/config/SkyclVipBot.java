@@ -16,6 +16,7 @@ import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updates.DeleteWebhook;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -140,6 +141,13 @@ public class SkyclVipBot extends TelegramLongPollingBot {
             botsApi.registerBot(this);
 
             log.info("✅ Telegram Long Polling Bot 已启动: @{}", botProperties.getUsername());
+        } catch (TelegramApiException e) {
+            registered.set(false); // 注册失败，允许重试
+            // 忽略 409 Conflict 错误（旧连接还在，但会自动恢复）
+            if (e.getMessage() != null && e.getMessage().contains("[409] Conflict")) {
+                return;
+            }
+            log.error("❌ Telegram Long Polling Bot 启动失败: {}", e.getMessage(), e);
         } catch (Exception e) {
             registered.set(false); // 注册失败，允许重试
             log.error("❌ Telegram Long Polling Bot 启动失败: {}", e.getMessage(), e);
