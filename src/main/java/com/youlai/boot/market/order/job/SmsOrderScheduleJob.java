@@ -11,7 +11,6 @@ import com.youlai.boot.market.order.service.SmsOrderService;
 import com.youlai.boot.market.order.service.SmsPhoneRecordService;
 import com.youlai.boot.market.order.strategy.SmsChannelContext;
 import com.youlai.boot.market.order.strategy.SmsChannelStrategy;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -204,8 +203,7 @@ public class SmsOrderScheduleJob {
      * 3. 聚合所有批次的查询结果后统一批量更新
      * 4. 更新完成后统一检查相关订单状态
      */
-    @PostConstruct
-    @Scheduled(fixedDelay = 240000)
+    @Scheduled(initialDelay = 45000, fixedDelay = 240000)
     public void queryAndUpdateReports() {
         log.debug("开始执行状态报告查询任务...");
 
@@ -320,8 +318,7 @@ public class SmsOrderScheduleJob {
     /**
      * 定时查询并更新余额
      */
-    @PostConstruct
-    @Scheduled(fixedDelay = 240000)
+    @Scheduled(initialDelay = 60000, fixedDelay = 240000)
     public void queryAndUpdatePrice() {
         log.debug("开始执行余额查询任务...");
 
