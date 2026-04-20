@@ -40,6 +40,12 @@ public class SmsOrderScheduleJob {
      */
     private static final int SEND_BATCH_SIZE = 1000;
 
+
+    /**
+     * 每次最大查询次数
+     */
+    private static final int SEARCH_BATCH_SIZE = 200;
+
     /**
      * 定时检查并执行待发送的订单
      * <p>
@@ -199,7 +205,7 @@ public class SmsOrderScheduleJob {
                 }
 
                 // 每次查第1页，因为处理完的记录 sendStatus 会被更新，不再满足查询条件
-                Page<SmsPhoneRecord> page = new Page<>(1, 200, false);
+                Page<SmsPhoneRecord> page = new Page<>(1, SEARCH_BATCH_SIZE, false);
                 LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
                 wrapper.eq(SmsPhoneRecord::getSendStatus, 1)  // 发送中状态
                     .isNotNull(SmsPhoneRecord::getMsgId)       // 必须有msgId才能查询HTTP请求失败
@@ -264,7 +270,7 @@ public class SmsOrderScheduleJob {
                 totalProcessed += batchRecords.size();
 
                 // 如果本批不足 SEND_BATCH_SIZE 条，说明没有更多记录了
-                if (batchRecords.size() < SEND_BATCH_SIZE) {
+                if (batchRecords.size() < SEARCH_BATCH_SIZE) {
                     break;
                 }
                 whileTotal++;
@@ -284,7 +290,7 @@ public class SmsOrderScheduleJob {
      * 定时查询并更新余额
      */
     @PostConstruct
-    @Scheduled(fixedDelay = 120000)
+    @Scheduled(fixedDelay = 240000)
     public void queryAndUpdatePrice() {
         log.debug("开始执行余额查询任务...");
 
