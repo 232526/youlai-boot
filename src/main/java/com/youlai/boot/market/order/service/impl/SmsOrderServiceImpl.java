@@ -212,37 +212,10 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
             contentIds.add(content.getContentId());
         }
 
-        // 保存手机号记录（异步多线程）
-        // 规则：只有1条文案时，所有号码发同一条；多条文案时，每个号码随机分配一条文案
+        // 异步多线程保存手机号记录（构建 + 插入全部在异步线程中完成）
         List<String> phoneNumberList = formData.getPhoneNumberList();
-        Random random = new Random();
-
-        // 先在主线程构建所有记录对象
-        List<SmsPhoneRecord> allRecords = new ArrayList<>(phoneNumberList.size());
-        if (contentIds.size() == 1) {
-            Long contentId = contentIds.get(0);
-            for (String phoneNumber : phoneNumberList) {
-                SmsPhoneRecord record = new SmsPhoneRecord();
-                record.setOrderNo(orderId);
-                record.setContentId(contentId);
-                record.setPhoneNumber(phoneNumber);
-                record.setSendStatus(0);
-                allRecords.add(record);
-            }
-        } else {
-            for (String phoneNumber : phoneNumberList) {
-                Long contentId = contentIds.get(random.nextInt(contentIds.size()));
-                SmsPhoneRecord record = new SmsPhoneRecord();
-                record.setOrderNo(orderId);
-                record.setContentId(contentId);
-                record.setPhoneNumber(phoneNumber);
-                record.setSendStatus(0);
-                allRecords.add(record);
-            }
-        }
-
-        // 分批多线程异步插入
-        asyncBatchInsertPhoneRecords(allRecords);
+        List<Long> finalContentIds = new ArrayList<>(contentIds);
+        asyncBuildAndInsertPhoneRecords(orderId, phoneNumberList, finalContentIds);
 
         return orderId;
     }
@@ -357,40 +330,65 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
     }
 
     /**
-     * 异步多线程批量插入手机号记录
+     * 异步构建并多线程批量插入手机号记录
+     * <p>
+     * 规则：只有1条文案时，所有号码发同一条；多条文案时，每个号码随机分配一条文案
      *
-     * @param allRecords 待插入的所有手机号记录
+     * @param orderId      订单编号
+     * @param phoneNumbers 手机号列表
+     * @param contentIds   短信内容ID列表
      */
-    private void asyncBatchInsertPhoneRecords(List<SmsPhoneRecord> allRecords) {
-        // 将记录按 BATCH_SIZE 分批
-        List<List<SmsPhoneRecord>> batches = new ArrayList<>();
-        for (int i = 0; i < allRecords.size(); i += BATCH_SIZE) {
-            batches.add(allRecords.subList(i, Math.min(i + BATCH_SIZE, allRecords.size())));
-        }
+    private void asyncBuildAndInsertPhoneRecords(String orderId, List<String> phoneNumbers, List<Long> contentIds) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 构建所有手机号记录
+                Random random = new Random();
+                List<SmsPhoneRecord> allRecords = new ArrayList<>(phoneNumbers.size());
 
-        // 多线程异步执行每一批的插入
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (List<SmsPhoneRecord> batch : batches) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                try {
-                    // 使用 MyBatis-Plus 的批量插入
-                    for (SmsPhoneRecord record : batch) {
-                        smsPhoneRecordMapper.insert(record);
+                if (contentIds.size() == 1) {
+                    Long contentId = contentIds.get(0);
+                    for (String phoneNumber : phoneNumbers) {
+                        SmsPhoneRecord record = new SmsPhoneRecord();
+                        record.setOrderNo(orderId);
+                        record.setContentId(contentId);
+                        record.setPhoneNumber(phoneNumber);
+                        record.setSendStatus(0);
+                        allRecords.add(record);
                     }
-                } catch (Exception e) {
-                    log.error("批量插入手机号记录失败, orderNo={}, batchSize={}", batch.get(0).getOrderNo(), batch.size(), e);
+                } else {
+                    for (String phoneNumber : phoneNumbers) {
+                        Long contentId = contentIds.get(random.nextInt(contentIds.size()));
+                        SmsPhoneRecord record = new SmsPhoneRecord();
+                        record.setOrderNo(orderId);
+                        record.setContentId(contentId);
+                        record.setPhoneNumber(phoneNumber);
+                        record.setSendStatus(0);
+                        allRecords.add(record);
+                    }
                 }
-            }, PHONE_RECORD_EXECUTOR);
-            futures.add(future);
-        }
 
-        // 异步等待所有批次完成并记录日志
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenRun(() -> log.info("手机号记录全部保存完成, 总数={}", allRecords.size()))
-                .exceptionally(ex -> {
-                    log.error("手机号记录保存过程中出现异常", ex);
-                    return null;
-                });
+                // 分批并行插入
+                List<List<SmsPhoneRecord>> batches = new ArrayList<>();
+                for (int i = 0; i < allRecords.size(); i += BATCH_SIZE) {
+                    batches.add(allRecords.subList(i, Math.min(i + BATCH_SIZE, allRecords.size())));
+                }
+
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                for (List<SmsPhoneRecord> batch : batches) {
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                        for (SmsPhoneRecord record : batch) {
+                            smsPhoneRecordMapper.insert(record);
+                        }
+                    }, PHONE_RECORD_EXECUTOR);
+                    futures.add(future);
+                }
+
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                log.info("手机号记录全部保存完成, orderNo={}, 总数={}", orderId, allRecords.size());
+            } catch (Exception e) {
+                log.error("异步保存手机号记录失败, orderNo={}", orderId, e);
+            }
+        }, PHONE_RECORD_EXECUTOR);
     }
 
 }
