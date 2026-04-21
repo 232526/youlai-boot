@@ -60,12 +60,12 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
      * 手机号记录保存线程池
      */
     private static final ThreadPoolExecutor PHONE_RECORD_EXECUTOR = new ThreadPoolExecutor(
-            4,
-            8,
-            60L,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(32),
-            new ThreadPoolExecutor.CallerRunsPolicy()
+        4,
+        8,
+        60L,
+        TimeUnit.SECONDS,
+        new LinkedBlockingQueue<>(32),
+        new ThreadPoolExecutor.CallerRunsPolicy()
     );
 
     /**
@@ -113,7 +113,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
 
             // 查询每个订单的不重复手机号数量（SQL层统计，避免全量加载到内存）
             Map<String, Long> phoneCountMap = new HashMap<>();
-           List<Map<String, Object>> phoneCounts = smsPhoneRecordMapper.countDistinctPhoneByOrderNos(orderNos);
+            List<Map<String, Object>> phoneCounts = smsPhoneRecordMapper.countDistinctPhoneByOrderNos(orderNos);
             for (Map<String, Object> row : phoneCounts) {
                 String orderNo = (String) row.get("order_no");
                 Long cnt = ((Number) row.get("cnt")).longValue();
@@ -200,6 +200,8 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         order.setFailCount(0);
         order.setTotalCount(formData.getPhoneNumberList().size());
         order.setRemark(formData.getRemark());
+        order.setCreateBy(SecurityUtils.getUserId());
+        order.setCreateTime(LocalDateTime.now());
 
         this.save(order);
 
@@ -218,7 +220,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         // 异步多线程保存手机号记录（构建 + 插入全部在异步线程中完成）
         List<String> phoneNumberList = formData.getPhoneNumberList();
         List<Long> finalContentIds = new ArrayList<>(contentIds);
-        asyncBuildAndInsertPhoneRecords(orderId, phoneNumberList, finalContentIds);
+        asyncBuildAndInsertPhoneRecords(orderId, phoneNumberList, finalContentIds, SecurityUtils.getUserId());
 
         return orderId;
     }
@@ -341,7 +343,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
      * @param phoneNumbers 手机号列表
      * @param contentIds   短信内容ID列表
      */
-    private void asyncBuildAndInsertPhoneRecords(String orderId, List<String> phoneNumbers, List<Long> contentIds) {
+    private void asyncBuildAndInsertPhoneRecords(String orderId, List<String> phoneNumbers, List<Long> contentIds, Long userId) {
         CompletableFuture.runAsync(() -> {
             try {
                 // 构建所有手机号记录
@@ -356,6 +358,8 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
                         record.setContentId(contentId);
                         record.setPhoneNumber(phoneNumber);
                         record.setSendStatus(0);
+                        record.setCreateBy(userId);
+                        record.setCreateTime(LocalDateTime.now());
                         allRecords.add(record);
                     }
                 } else {
@@ -366,6 +370,8 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
                         record.setContentId(contentId);
                         record.setPhoneNumber(phoneNumber);
                         record.setSendStatus(0);
+                        record.setCreateBy(userId);
+                        record.setCreateTime(LocalDateTime.now());
                         allRecords.add(record);
                     }
                 }
