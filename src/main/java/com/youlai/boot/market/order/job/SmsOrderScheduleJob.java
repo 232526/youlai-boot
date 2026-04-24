@@ -130,9 +130,7 @@ public class SmsOrderScheduleJob {
             // 每次都查第1页，因为上一批发送成功后 sendStatus 已被更新，不再是待发送状态
             Page<SmsPhoneRecord> page = new Page<>(1, SEND_BATCH_SIZE, false);
             LambdaQueryWrapper<SmsPhoneRecord> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(SmsPhoneRecord::getOrderNo, order.getOrderNo())
-                .eq(SmsPhoneRecord::getSendStatus, 0)
-                .orderByAsc(SmsPhoneRecord::getOrderNo);
+            wrapper.eq(SmsPhoneRecord::getOrderNo, order.getOrderNo()).eq(SmsPhoneRecord::getSendStatus, 0).orderByAsc(SmsPhoneRecord::getOrderNo);
             Page<SmsPhoneRecord> recordPage = smsPhoneRecordService.page(page, wrapper);
 
             List<SmsPhoneRecord> batchRecords = recordPage.getRecords();
@@ -141,10 +139,7 @@ public class SmsOrderScheduleJob {
             }
 
             // 提取本批手机号（去重）
-            List<String> batchPhones = batchRecords.stream()
-                .map(SmsPhoneRecord::getPhoneNumber)
-                .distinct()
-                .collect(Collectors.toList());
+            List<String> batchPhones = batchRecords.stream().map(SmsPhoneRecord::getPhoneNumber).distinct().collect(Collectors.toList());
 
             batchIndex++;
             log.info("订单 {} 发送第 {} 批，本批数量: {}", order.getOrderNo(), batchIndex, batchPhones.size());
@@ -203,7 +198,8 @@ public class SmsOrderScheduleJob {
      * 3. 聚合所有批次的查询结果后统一批量更新
      * 4. 更新完成后统一检查相关订单状态
      */
-    @Scheduled(initialDelay = 45000, fixedDelay = 240000)
+//    @Scheduled(initialDelay = 45000, fixedDelay = 240000)
+    @Scheduled(fixedDelay = 240000)
     public void queryAndUpdateReports() {
         log.debug("开始执行状态报告查询任务...");
 
@@ -225,16 +221,10 @@ public class SmsOrderScheduleJob {
                 log.info("本轮查询到 {} 个去重msgId，开始查询状态报告", msgIdRecords.size());
 
                 // 按渠道分组
-                Map<String, List<String>> msgIdsByChannel = msgIdRecords.stream()
-                    .collect(Collectors.groupingBy(
-                        r -> r.get("channel") != null ? r.get("channel").toString() : "ONBUKA",
-                        Collectors.mapping(r -> r.get("msg_id").toString(), Collectors.toList())
-                    ));
+                Map<String, List<String>> msgIdsByChannel = msgIdRecords.stream().collect(Collectors.groupingBy(r -> r.get("channel") != null ? r.get("channel").toString() : "ONBUKA", Collectors.mapping(r -> r.get("msg_id").toString(), Collectors.toList())));
 
                 // 收集本轮涉及的所有订单号
-                Set<String> affectedOrderNos = msgIdRecords.stream()
-                    .map(r -> r.get("order_no").toString())
-                    .collect(Collectors.toSet());
+                Set<String> affectedOrderNos = msgIdRecords.stream().map(r -> r.get("order_no").toString()).collect(Collectors.toSet());
 
                 // 按渠道分别处理
                 for (var channelEntry : msgIdsByChannel.entrySet()) {
@@ -261,17 +251,14 @@ public class SmsOrderScheduleJob {
                         int batchNo = i / REPORT_API_BATCH_SIZE + 1;
 
                         try {
-                            log.debug("渠道 {} 查询第 {}/{} 批状态报告，本批msgId数量: {}",
-                                channelCode, batchNo, totalBatches, batchMsgIds.size());
+                            log.debug("渠道 {} 查询第 {}/{} 批状态报告，本批msgId数量: {}", channelCode, batchNo, totalBatches, batchMsgIds.size());
 
                             SmsChannelStrategy.SmsReportResult reportResult = strategy.queryReport(batchMsgIds);
 
                             if (reportResult != null && reportResult.success() && reportResult.statusList() != null) {
                                 allStatusList.addAll(reportResult.statusList());
                             } else {
-                                log.warn("渠道 {} 第 {} 批状态报告查询失败: {}",
-                                    channelCode, batchNo,
-                                    reportResult != null ? reportResult.message() : "未知错误");
+                                log.warn("渠道 {} 第 {} 批状态报告查询失败: {}", channelCode, batchNo, reportResult != null ? reportResult.message() : "未知错误");
                             }
                         } catch (Exception e) {
                             log.error("渠道 {} 第 {} 批状态报告查询异常", channelCode, batchNo, e);
@@ -281,8 +268,7 @@ public class SmsOrderScheduleJob {
                     // 聚合结果后统一批量更新
                     if (!allStatusList.isEmpty()) {
                         log.info("渠道 {} 共获取到 {} 条状态报告，开始批量更新", channelCode, allStatusList.size());
-                        SmsChannelStrategy.SmsReportResult aggregatedResult =
-                            new SmsChannelStrategy.SmsReportResult(true, "聚合查询成功", allStatusList);
+                        SmsChannelStrategy.SmsReportResult aggregatedResult = new SmsChannelStrategy.SmsReportResult(true, "聚合查询成功", allStatusList);
                         smsPhoneRecordService.updateReportResult(aggregatedResult);
                     }
                 }
@@ -342,18 +328,10 @@ public class SmsOrderScheduleJob {
                     SmsChannelStrategy.BalanceResult balanceResult = smsChannelContext.queryBalance(channelCode);
 
                     if (balanceResult != null && balanceResult.success()) {
-                        log.info("渠道 {} 余额查询成功 - 余额: {} {}, 消息: {}",
-                            channelCode,
-                            balanceResult.balance(),
-                            balanceResult.currency(),
-                            balanceResult.message()
-                        );
+                        log.info("渠道 {} 余额查询成功 - 余额: {} {}, 消息: {}", channelCode, balanceResult.balance(), balanceResult.currency(), balanceResult.message());
 
                     } else {
-                        log.warn("渠道 {} 余额查询失败 - 错误信息: {}",
-                            channelCode,
-                            balanceResult != null ? balanceResult.message() : "未知错误"
-                        );
+                        log.warn("渠道 {} 余额查询失败 - 错误信息: {}", channelCode, balanceResult != null ? balanceResult.message() : "未知错误");
                     }
                 } catch (Exception e) {
                     log.error("查询渠道 {} 余额失败", channelCode, e);

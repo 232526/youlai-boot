@@ -44,7 +44,7 @@ public class SmsOrder extends BaseEntity {
     private LocalDateTime scheduledTime;
 
     /**
-     * 短信渠道：ONBUKA-Onbuka短信，ALIYUN-阿里云短信，TENCENT-腾讯云短信
+     *  渠道
      */
     private String channel;
 

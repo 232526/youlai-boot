@@ -88,14 +88,14 @@ public interface SmsChannelStrategy {
          * 费用详情
          */
         public record PriceDetail(
-            BigDecimal payAmount,
-            String currency,
-            Integer chargeCount,
-            BigDecimal unitPrice,
-            BigDecimal quoteExchange,
-            BigDecimal settlePay,
-            String settleCurrency,
-            BigDecimal settleUnitPrice
+            BigDecimal payAmount, // 总费用
+            String currency, //币总
+            Integer chargeCount,//计费条数
+            BigDecimal unitPrice,//单价
+            BigDecimal quoteExchange,//报价汇率（报价币种非USD时返回）
+            BigDecimal settlePay,// 结算币种总费用（报价币种非USD时返回）
+            String settleCurrency,//结算币种（报价币种非USD时返回）
+            BigDecimal settleUnitPrice//结算币种单价（报价币种非USD时返回）
         ) {
         }
     }

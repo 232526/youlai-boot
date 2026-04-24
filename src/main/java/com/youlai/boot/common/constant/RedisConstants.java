@@ -61,4 +61,11 @@ public interface RedisConstants {
         String USER_INFO = "system:user:{}";             // 用户信息（缓存1分钟）
     }
 
+    /**
+     * 短信模块
+     */
+    interface Sms {
+        String SMPP_DLR_HASH = "sms:smpp:dlr";  // SMPP投递回执缓存（Hash: msgId -> SmsStatus JSON）
+    }
+
 }

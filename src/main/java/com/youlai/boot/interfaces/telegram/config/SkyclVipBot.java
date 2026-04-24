@@ -110,18 +110,19 @@ public class SkyclVipBot extends TelegramLongPollingBot {
             boolean isDevEnvironment = "dev".equals(activeProfile) || "local".equals(activeProfile);
 
             if (isDevEnvironment) {
+                return;
                 // 配置代理 (Clash SOCKS5 代理) - 仅开发环境
-                String proxyHost = "127.0.0.1";
-                int socksProxyPort = 7891;
-
-                log.info("🔧 开始配置 Telegram Bot 代理...");
-                System.setProperty("socksProxyHost", proxyHost);
-                System.setProperty("socksProxyPort", String.valueOf(socksProxyPort));
-                System.setProperty("http.proxyHost", proxyHost);
-                System.setProperty("http.proxyPort", "7890");
-                System.setProperty("https.proxyHost", proxyHost);
-                System.setProperty("https.proxyPort", "7890");
-                log.info("✅ Telegram Bot 代理配置完成");
+//                String proxyHost = "127.0.0.1";
+//                int socksProxyPort = 7891;
+//
+//                log.info("🔧 开始配置 Telegram Bot 代理...");
+//                System.setProperty("socksProxyHost", proxyHost);
+//                System.setProperty("socksProxyPort", String.valueOf(socksProxyPort));
+//                System.setProperty("http.proxyHost", proxyHost);
+//                System.setProperty("http.proxyPort", "7890");
+//                System.setProperty("https.proxyHost", proxyHost);
+//                System.setProperty("https.proxyPort", "7890");
+//                log.info("✅ Telegram Bot 代理配置完成");
             } else {
                 log.info("🌐 生产环境，直接连接 Telegram API");
             }

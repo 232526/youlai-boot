@@ -13,8 +13,7 @@ import lombok.Getter;
 public enum SmsChannelEnum implements IBaseEnum<String> {
 
     ONBUKA("ONBUKA", "Onbuka短信"),
-    ALIYUN("ALIYUN", "阿里云短信"),
-    TENCENT("TENCENT", "腾讯云短信");
+    BESTSMS("BestSMS", "BestSMS短信");
 
     private final String value;
     private final String label;

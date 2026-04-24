@@ -24,6 +24,8 @@ import com.youlai.boot.market.order.model.vo.SmsOrderStatisticsVO;
 import com.youlai.boot.market.order.service.SmsOrderService;
 import com.youlai.boot.system.mapper.CountryMapper;
 import com.youlai.boot.system.mapper.UserMapper;
+import com.youlai.boot.system.mapper.ChannelMapper;
+import com.youlai.boot.system.model.entity.Channel;
 import com.youlai.boot.system.model.entity.Country;
 import com.youlai.boot.system.model.entity.SysUser;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +57,7 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
     private final SmsMessageContentMapper smsMessageContentMapper;
     private final SmsPhoneRecordMapper smsPhoneRecordMapper;
     private final UserMapper userMapper;
+    private final ChannelMapper channelMapper;
 
     /**
      * 手机号记录保存线程池
@@ -202,7 +205,14 @@ public class SmsOrderServiceImpl extends ServiceImpl<SmsOrderMapper, SmsOrder> i
         order.setRemark(formData.getRemark());
         order.setCreateBy(SecurityUtils.getUserId());
         order.setCreateTime(LocalDateTime.now());
-
+        SysUser user = userMapper.selectById(order.getCreateBy());
+        // 根据用户配置的短信渠道ID查询渠道信息
+        if (user != null && user.getSmsChannelId() != null) {
+            Channel channel = channelMapper.selectById(user.getSmsChannelId());
+            if (channel != null) {
+                order.setChannel(channel.getName());
+            }
+        }
         this.save(order);
 
         // 保存短信内容

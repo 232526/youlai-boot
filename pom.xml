@@ -292,6 +292,14 @@
             <version>${telegrambots.version}</version>
         </dependency>
 
+        <!-- SMPP 短信协议 -->
+        <!-- 升级到 3.0.0 最新版本,修复内部线程池 bug -->
+        <dependency>
+            <groupId>org.jsmpp</groupId>
+            <artifactId>jsmpp</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
