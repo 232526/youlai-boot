@@ -88,6 +88,21 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
 
     @Override
     public SmsSendResult sendSms(List<String> phoneNumbers, String senderId, String content) {
+        return doSendSms(phoneNumbers, senderId, content, false);
+    }
+
+    /**
+     * 执行短信发送（支持重试一次）
+     * <p>
+     * 遇到否定响应、响应超时、无效响应时，先关闭旧连接再重试一次，避免复用已失效的会话
+     *
+     * @param phoneNumbers 手机号列表
+     * @param senderId     发送者ID
+     * @param content      短信内容
+     * @param isRetry      是否为重试（重试不再递归，避免无限循环）
+     * @return 发送结果
+     */
+    private SmsSendResult doSendSms(List<String> phoneNumbers, String senderId, String content, boolean isRetry) {
         try {
             SMPPSession smppSession = getOrCreateSession();
             List<String> msgIds = new ArrayList<>();
@@ -99,63 +114,90 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
                 String destAddress = fullNumber.startsWith("+") ? fullNumber.substring(1) : fullNumber;
 
                 try {
-                    // 处理长短信：按照 SMPP 协议，如果短信内容超过单条限制，需要进行分片
-                    byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
-
-                    String msgId;
-                    if (contentBytes.length <= 140) {
-                        // 单条短信（JSMPP 3.x 返回 SubmitSmResult 对象）
-                        SubmitSmResult result = smppSession.submitShortMessage(
-                            "CMT",                                    // service type
-                            TypeOfNumber.ALPHANUMERIC,                // source addr TON
-                            NumberingPlanIndicator.UNKNOWN,            // source addr NPI
-                            senderId != null ? senderId : SYSTEM_ID,  // source addr
-                            TypeOfNumber.INTERNATIONAL,               // dest addr TON
-                            NumberingPlanIndicator.ISDN,              // dest addr NPI
-                            destAddress,                              // destination addr
-                            new ESMClass(),                           // ESM class
-                            (byte) 0,                                 // protocol id
-                            (byte) 1,                                 // priority flag
-                            null,                                     // schedule delivery time
-                            null,                                     // validity period
-                            new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), // registered delivery
-                            (byte) 0,                                 // replace if present flag
-                            new GeneralDataCoding(Alphabet.ALPHA_UCS2), // data coding (UCS2 for unicode)
-                            (byte) 0,                                 // sm default msg id
-                            content.getBytes(StandardCharsets.UTF_16BE) // short message (UCS2 编码)
-                        );
-                        msgId = result.getMessageId();
-                    } else {
-                        // 长短信：使用 UDH 分片发送
-                        msgId = sendLongMessage(smppSession, senderId, destAddress, content);
-                    }
-
+                    String msgId = submitSingleMessage(smppSession, senderId, destAddress, content);
                     if (msgId != null && !msgId.isEmpty()) {
                         msgIds.add(msgId);
                     }
-
+                } catch (NegativeResponseException e) {
+                    if (!isRetry) {
+                        log.error("SMPP否定响应, 号码: {}, 将关闭连接并重试", destAddress, e);
+                        resetSession();
+                        return doSendSms(phoneNumbers, senderId, content, true);
+                    }
+                    log.error("SMPP重试后仍然否定响应, 号码: {}", destAddress, e);
+                    return new SmsSendResult(false, "否定响应: " + e.getMessage(), msgIds, e.getMessage());
                 } catch (PDUException e) {
-                    log.error("SMPP PDU异常, 号码: {}", destAddress, e);
+                    log.error("SMPP{}PDU异常, 号码: {}", isRetry ? "重试后" : "", destAddress, e);
                     return new SmsSendResult(false, "PDU异常: " + e.getMessage(), msgIds, e.getMessage());
                 } catch (ResponseTimeoutException e) {
-                    log.error("SMPP响应超时, 号码: {}", destAddress, e);
-                    return new SmsSendResult(false, "响应超时", msgIds, "响应超时: " + e.getMessage());
+                    if (!isRetry) {
+                        log.error("SMPP响应超时, 号码: {}, 将关闭连接并重试", destAddress, e);
+                        resetSession();
+                        return doSendSms(phoneNumbers, senderId, content, true);
+                    }
+                    log.error("SMPP重试后响应超时, 号码: {}", destAddress, e);
+                    return new SmsSendResult(false, "响应超时: " + e.getMessage(), msgIds, e.getMessage());
                 } catch (InvalidResponseException e) {
-                    log.error("SMPP无效响应, 号码: {}", destAddress, e);
+                    if (!isRetry) {
+                        log.error("SMPP无效响应, 号码: {}, 将关闭连接并重试", destAddress, e);
+                        resetSession();
+                        return doSendSms(phoneNumbers, senderId, content, true);
+                    }
+                    log.error("SMPP重试后无效响应, 号码: {}", destAddress, e);
                     return new SmsSendResult(false, "无效响应: " + e.getMessage(), msgIds, e.getMessage());
-                } catch (NegativeResponseException e) {
-                    log.error("SMPP否定响应, 号码: {}", destAddress, e);
-                    return new SmsSendResult(false, "否定响应: " + e.getMessage(), msgIds, e.getMessage());
                 }
             }
 
-            log.info("SMPP短信发送完成, 成功{}条", msgIds.size());
+            log.info("SMPP{}发送完成, 成功{}条", isRetry ? "重试" : "短信", msgIds.size());
             return new SmsSendResult(true, "发送成功", msgIds);
 
         } catch (Exception e) {
-            log.error("SMPP短信发送失败", e);
-            String failReason = "发送失败: " + e.getMessage();
+            log.error("SMPP{}发送失败", isRetry ? "重试" : "短信", e);
+            String failReason = (isRetry ? "重试发送失败: " : "发送失败: ") + e.getMessage();
             return new SmsSendResult(false, failReason, null, failReason);
+        }
+    }
+
+    /**
+     * 提交单条短信到 SMSC
+     *
+     * @param smppSession SMPP 会话
+     * @param senderId    发送者ID
+     * @param destAddress 目标地址（不含+号）
+     * @param content     短信内容
+     * @return 消息ID
+     */
+    private String submitSingleMessage(SMPPSession smppSession, String senderId, String destAddress, String content)
+        throws PDUException, ResponseTimeoutException, InvalidResponseException,
+        NegativeResponseException, IOException {
+
+        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
+
+        if (contentBytes.length <= 140) {
+            // 单条短信（JSMPP 3.x 返回 SubmitSmResult 对象）
+            SubmitSmResult result = smppSession.submitShortMessage(
+                "CMT",                                    // service type
+                TypeOfNumber.ALPHANUMERIC,                // source addr TON
+                NumberingPlanIndicator.UNKNOWN,            // source addr NPI
+                senderId != null ? senderId : SYSTEM_ID,  // source addr
+                TypeOfNumber.INTERNATIONAL,               // dest addr TON
+                NumberingPlanIndicator.ISDN,              // dest addr NPI
+                destAddress,                              // destination addr
+                new ESMClass(),                           // ESM class
+                (byte) 0,                                 // protocol id
+                (byte) 1,                                 // priority flag
+                null,                                     // schedule delivery time
+                null,                                     // validity period
+                new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), // registered delivery
+                (byte) 0,                                 // replace if present flag
+                new GeneralDataCoding(Alphabet.ALPHA_UCS2), // data coding (UCS2 for unicode)
+                (byte) 0,                                 // sm default msg id
+                content.getBytes(StandardCharsets.UTF_16BE) // short message (UCS2 编码)
+            );
+            return result.getMessageId();
+        } else {
+            // 长短信：使用 UDH 分片发送
+            return sendLongMessage(smppSession, senderId, destAddress, content);
         }
     }
 
@@ -165,6 +207,9 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
         SmsReportResult.PriceDetail priceDetail = new SmsReportResult.PriceDetail(
             BigDecimal.valueOf(0.0031), "USD", 1, BigDecimal.valueOf(0.0031), null, null, null, null
         );
+        // 收集Redis中未命中的msgId，后续通过query_sm主动查询
+        List<String> missedMsgIds = new ArrayList<>();
+
         for (String msgId : msgIds) {
             Object value = redisTemplate.opsForHash().get(RedisConstants.Sms.SMPP_DLR_HASH, msgId);
             if (value != null) {
@@ -183,6 +228,8 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
                 } catch (Exception e) {
                     log.warn("解析Redis中的SMPP投递回执失败, msgId: {}", msgId, e);
                 }
+            } else {
+                missedMsgIds.add(msgId);
             }
         }
 
@@ -190,7 +237,107 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             log.info("SMPP渠道从Redis中获取到 {} 条投递回执（共查询 {} 个msgId）", statusList.size(), msgIds.size());
         }
 
+        // Redis未命中的msgId，通过SMPP query_sm主动查询SMSC
+        if (!missedMsgIds.isEmpty()) {
+            log.info("Redis未命中 {} 个msgId，开始通过query_sm主动查询", missedMsgIds.size());
+            List<SmsReportResult.SmsStatus> queriedStatusList = querySmppMessageStatus(missedMsgIds, priceDetail);
+            statusList.addAll(queriedStatusList);
+        }
+
         return new SmsReportResult(true, "查询成功", statusList);
+    }
+
+    /**
+     * 通过 SMPP query_sm 主动查询消息状态
+     *
+     * @param msgIds      需要查询的消息ID列表
+     * @param priceDetail 费用详情
+     * @return 查询到的状态列表
+     */
+    private List<SmsReportResult.SmsStatus> querySmppMessageStatus(List<String> msgIds, SmsReportResult.PriceDetail priceDetail) {
+        List<SmsReportResult.SmsStatus> statusList = new ArrayList<>();
+        SMPPSession smppSession;
+        try {
+            smppSession = getOrCreateSession();
+        } catch (IOException e) {
+            log.error("query_sm查询时获取SMPP会话失败", e);
+            return statusList;
+        }
+
+        for (String msgId : msgIds) {
+            try {
+                QuerySmResult queryResult = smppSession.queryShortMessage(
+                    msgId,
+                    TypeOfNumber.INTERNATIONAL,
+                    NumberingPlanIndicator.ISDN,
+                    ""
+                );
+
+                MessageState messageState = queryResult.getMessageState();
+                // 跳过中间态（ENROUTE=发送中），只返回终态结果
+                if (messageState == MessageState.ENROUTE) {
+                    continue;
+                }
+
+                Integer statusCode = convertMessageState(messageState);
+                String statusDesc = convertMessageStateToChinese(messageState);
+                String receiveTime = parseDlrDate(queryResult.getFinalDate());
+
+                SmsReportResult.SmsStatus status = new SmsReportResult.SmsStatus(
+                    msgId,
+                    null,
+                    statusCode,
+                    statusDesc,
+                    receiveTime,
+                    priceDetail
+                );
+                statusList.add(status);
+            } catch (Exception e) {
+                log.debug("query_sm查询消息状态失败, msgId: {}, 原因: {}", msgId, e.getMessage());
+            }
+        }
+
+        if (!statusList.isEmpty()) {
+            log.info("通过query_sm主动查询到 {} 条消息状态", statusList.size());
+        }
+        return statusList;
+    }
+
+    /**
+     * 将 SMPP MessageState 转换为系统状态码
+     * <p>
+     * 与 Onbuka 平台对齐：0=送达, -1=发送中, 1=失败
+     *
+     * @param state SMPP MessageState
+     * @return 系统状态码
+     */
+    private Integer convertMessageState(MessageState state) {
+        return switch (state) {
+            case DELIVERED -> 0;     // 送达
+            case ENROUTE, ACCEPTED -> -1;    // 发送中
+            case EXPIRED, DELETED, UNDELIVERABLE, REJECTED, UNKNOWN -> 1; // 失败
+            default -> -1;
+        };
+    }
+
+    /**
+     * 将 SMPP MessageState 转换为中文描述
+     *
+     * @param state SMPP MessageState
+     * @return 中文状态描述
+     */
+    private String convertMessageStateToChinese(MessageState state) {
+        return switch (state) {
+            case DELIVERED -> "已送达";
+            case ENROUTE -> "发送中";
+            case ACCEPTED -> "已接受";
+            case EXPIRED -> "已过期";
+            case DELETED -> "已删除";
+            case UNDELIVERABLE -> "无法送达";
+            case REJECTED -> "已拒绝";
+            case UNKNOWN -> "未知状态";
+            default -> state.name();
+        };
     }
 
     @Override
@@ -478,6 +625,19 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
         } catch (Exception e) {
             log.warn("解析DLR日期失败: {}", dlrDate);
             return null;
+        }
+    }
+
+    /**
+     * 重置会话：关闭当前连接并置空，下次调用 getOrCreateSession() 时会重新建立连接
+     */
+    private void resetSession() {
+        connectionLock.lock();
+        try {
+            log.warn("SMPP会话重置: 关闭旧连接");
+            closeSession();
+        } finally {
+            connectionLock.unlock();
         }
     }
 
