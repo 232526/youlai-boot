@@ -171,10 +171,26 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
         throws PDUException, ResponseTimeoutException, InvalidResponseException,
         NegativeResponseException, IOException {
 
-        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
+        // 自动检测编码：纯GSM字符用GSM 7-bit（单条160字符），否则用UCS2（单条70字符）
+        boolean useGsm7bit = isGsm7BitCompatible(content);
+        byte[] contentBytes;
+        Alphabet alphabet;
+        int singleSmsMaxBytes;
 
-        if (contentBytes.length <= 140) {
-            // 单条短信（JSMPP 3.x 返回 SubmitSmResult 对象）
+        if (useGsm7bit) {
+            // GSM 7-bit 编码：ASCII字符1字节，单条上限160字节
+            contentBytes = content.getBytes(StandardCharsets.US_ASCII);
+            alphabet = Alphabet.ALPHA_DEFAULT;
+            singleSmsMaxBytes = 160;
+        } else {
+            // UCS2 编码：每字符2字节，单条上限140字节（70字符）
+            contentBytes = content.getBytes(StandardCharsets.UTF_16BE);
+            alphabet = Alphabet.ALPHA_UCS2;
+            singleSmsMaxBytes = 140;
+        }
+
+        if (contentBytes.length <= singleSmsMaxBytes) {
+            // 单条短信
             SubmitSmResult result = smppSession.submitShortMessage(
                 "CMT",                                    // service type
                 TypeOfNumber.ALPHANUMERIC,                // source addr TON
@@ -190,14 +206,14 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
                 null,                                     // validity period
                 new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), // registered delivery
                 (byte) 0,                                 // replace if present flag
-                new GeneralDataCoding(Alphabet.ALPHA_UCS2), // data coding (UCS2 for unicode)
+                new GeneralDataCoding(alphabet),           // data coding
                 (byte) 0,                                 // sm default msg id
-                content.getBytes(StandardCharsets.UTF_16BE) // short message (UCS2 编码)
+                contentBytes                              // short message
             );
             return result.getMessageId();
         } else {
             // 长短信：使用 UDH 分片发送
-            return sendLongMessage(smppSession, senderId, destAddress, content);
+            return sendLongMessage(smppSession, senderId, destAddress, content, useGsm7bit);
         }
     }
 
@@ -415,13 +431,26 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
      * @param content     短信内容
      * @return 第一条分片的消息ID
      */
-    private String sendLongMessage(SMPPSession smppSession, String senderId, String destAddress, String content)
+    private String sendLongMessage(SMPPSession smppSession, String senderId, String destAddress, String content, boolean useGsm7bit)
         throws PDUException, ResponseTimeoutException, InvalidResponseException,
         NegativeResponseException, IOException {
 
-        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_16BE);
-        // UDH 占 6 字节，每片有效载荷最大 134 字节
-        int maxSegmentSize = 134;
+        byte[] contentBytes;
+        Alphabet alphabet;
+        int maxSegmentSize;
+
+        if (useGsm7bit) {
+            // GSM 7-bit：UDH占6字节，每片有效载荷最大 160-6=154 字节（即153个GSM字符+1字节填充）
+            contentBytes = content.getBytes(StandardCharsets.US_ASCII);
+            alphabet = Alphabet.ALPHA_DEFAULT;
+            maxSegmentSize = 153;
+        } else {
+            // UCS2：UDH占6字节，每片有效载荷最大 140-6=134 字节（即67个字符）
+            contentBytes = content.getBytes(StandardCharsets.UTF_16BE);
+            alphabet = Alphabet.ALPHA_UCS2;
+            maxSegmentSize = 134;
+        }
+
         int totalSegments = (int) Math.ceil((double) contentBytes.length / maxSegmentSize);
         byte refNum = (byte) (Math.random() * 255);
 
@@ -449,7 +478,6 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             // ESMClass with UDHI bit set (0x40)
             ESMClass esmClass = new ESMClass((byte) 0x40);
 
-            // JSMPP 2.x 直接返回 messageId
             SubmitSmResult submitSmResult = smppSession.submitShortMessage(
                 "CMT",
                 TypeOfNumber.ALPHANUMERIC,
@@ -465,7 +493,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
                 null,
                 new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE),
                 (byte) 0,
-                new GeneralDataCoding(Alphabet.ALPHA_UCS2),
+                new GeneralDataCoding(alphabet),
                 (byte) 0,
                 messageWithUdh
             );
@@ -605,6 +633,27 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             case "REJECTD" -> "已拒绝";
             default -> dlrStat;  // 未知状态保留原文
         };
+    }
+
+    /**
+     * 检测内容是否可以用 GSM 7-bit 编码
+     * <p>
+     * GSM 7-bit 基本字符集包含 ASCII 可打印字符（部分除外）和少量特殊字符。
+     * 这里简化判断：纯 ASCII 可打印字符（0x20-0x7E）和换行/回车即认为兼容。
+     *
+     * @param content 短信内容
+     * @return true 表示可以用 GSM 7-bit 编码
+     */
+    private boolean isGsm7BitCompatible(String content) {
+        for (int i = 0; i < content.length(); i++) {
+            char c = content.charAt(i);
+            // ASCII 可打印字符 + 换行(0x0A) + 回车(0x0D)
+            if ((c >= 0x20 && c <= 0x7E) || c == '\n' || c == '\r') {
+                continue;
+            }
+            return false;
+        }
+        return true;
     }
 
     /**
