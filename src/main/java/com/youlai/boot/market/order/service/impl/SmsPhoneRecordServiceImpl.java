@@ -1,6 +1,7 @@
 package com.youlai.boot.market.order.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -287,11 +288,8 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         if (StrUtil.isBlank(receiveTimeStr)) {
             return null;
         }
-
         try {
-            // Onbuka返回的格式：2021-02-12T09:30:03+08:00
-            DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-            return LocalDateTime.parse(receiveTimeStr, formatter);
+            return DateUtil.parseLocalDateTime(receiveTimeStr);
         } catch (Exception e) {
             log.warn("解析接收时间失败: {}", receiveTimeStr, e);
             return null;
