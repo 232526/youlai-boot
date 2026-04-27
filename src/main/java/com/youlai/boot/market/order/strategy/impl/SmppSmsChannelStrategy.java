@@ -5,6 +5,7 @@ import cn.hutool.json.JSONObject;
 import com.youlai.boot.common.constant.RedisConstants;
 import com.youlai.boot.market.order.enums.SmsChannelEnum;
 import com.youlai.boot.market.order.strategy.SmsChannelStrategy;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +74,20 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
      * 示例: id:12345 sub:001 dlvrd:001 submit date:2106241200 done date:2106241201 stat:DELIVRD err:000 text:...
      */
     private static final Pattern DLR_PATTERN = Pattern.compile("id:([^ ]+)\\s+sub:\\d+\\s+dlvrd:\\d+\\s+submit date:(\\d+)\\s+done date:(\\d+)\\s+stat:([A-Z]+)\\s+err:(\\d+)");
+
+    /**
+     * 系统启动时建立 SMPP 连接（单例长连接）
+     */
+    @PostConstruct
+    public void init() {
+        try {
+            log.info("系统启动: 正在建立SMPP连接...");
+            getOrCreateSession();
+            log.info("系统启动: SMPP连接建立成功");
+        } catch (Exception e) {
+            log.error("系统启动: SMPP连接建立失败, 将在首次发送时重试", e);
+        }
+    }
 
     @Override
     public String getChannelCode() {
@@ -218,11 +233,11 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
         }
 
         // Redis未命中的msgId，通过SMPP query_sm主动查询SMSC
-        if (!missedMsgIds.isEmpty()) {
-            log.info("Redis未命中 {} 个msgId，开始通过query_sm主动查询", missedMsgIds.size());
-            List<SmsReportResult.SmsStatus> queriedStatusList = querySmppMessageStatus(missedMsgIds, priceDetail);
-            statusList.addAll(queriedStatusList);
-        }
+//        if (!missedMsgIds.isEmpty()) {
+//            log.info("Redis未命中 {} 个msgId，开始通过query_sm主动查询", missedMsgIds.size());
+//            List<SmsReportResult.SmsStatus> queriedStatusList = querySmppMessageStatus(missedMsgIds, priceDetail);
+//            statusList.addAll(queriedStatusList);
+//        }
 
         return new SmsReportResult(true, "查询成功", statusList);
     }
