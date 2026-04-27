@@ -72,9 +72,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
      * SMPP DLR 正文格式正则
      * 示例: id:12345 sub:001 dlvrd:001 submit date:2106241200 done date:2106241201 stat:DELIVRD err:000 text:...
      */
-    private static final Pattern DLR_PATTERN = Pattern.compile(
-        "id:([^ ]+)\\s+sub:\\d+\\s+dlvrd:\\d+\\s+submit date:(\\d+)\\s+done date:(\\d+)\\s+stat:([A-Z]+)\\s+err:(\\d+)"
-    );
+    private static final Pattern DLR_PATTERN = Pattern.compile("id:([^ ]+)\\s+sub:\\d+\\s+dlvrd:\\d+\\s+submit date:(\\d+)\\s+done date:(\\d+)\\s+stat:([A-Z]+)\\s+err:(\\d+)");
 
     @Override
     public String getChannelCode() {
@@ -167,62 +165,35 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
      * @param content     短信内容
      * @return 消息ID
      */
-    private String submitSingleMessage(SMPPSession smppSession, String senderId, String destAddress, String content)
-        throws PDUException, ResponseTimeoutException, InvalidResponseException,
-        NegativeResponseException, IOException {
+    private String submitSingleMessage(SMPPSession smppSession, String senderId, String destAddress, String content) throws PDUException, ResponseTimeoutException, InvalidResponseException, NegativeResponseException, IOException {
+        byte[] contentBytes = content.getBytes(StandardCharsets.US_ASCII);
 
-        // 自动检测编码：纯GSM字符用GSM 7-bit（单条160字符），否则用UCS2（单条70字符）
-        boolean useGsm7bit = isGsm7BitCompatible(content);
-        byte[] contentBytes;
-        Alphabet alphabet;
-        int singleSmsMaxBytes;
-
-        if (useGsm7bit) {
-            // GSM 7-bit 编码：ASCII字符1字节，单条上限160字节
-            contentBytes = content.getBytes(StandardCharsets.US_ASCII);
-            alphabet = Alphabet.ALPHA_DEFAULT;
-            singleSmsMaxBytes = 160;
-        } else {
-            // UCS2 编码：每字符2字节，单条上限140字节（70字符）
-            contentBytes = content.getBytes(StandardCharsets.UTF_16BE);
-            alphabet = Alphabet.ALPHA_UCS2;
-            singleSmsMaxBytes = 140;
-        }
-
-        if (contentBytes.length <= singleSmsMaxBytes) {
-            // 单条短信
-            SubmitSmResult result = smppSession.submitShortMessage(
-                "CMT",                                    // service type
-                TypeOfNumber.ALPHANUMERIC,                // source addr TON
-                NumberingPlanIndicator.UNKNOWN,            // source addr NPI
-                senderId != null ? senderId : SYSTEM_ID,  // source addr
-                TypeOfNumber.INTERNATIONAL,               // dest addr TON
-                NumberingPlanIndicator.ISDN,              // dest addr NPI
-                destAddress,                              // destination addr
-                new ESMClass(),                           // ESM class
-                (byte) 0,                                 // protocol id
-                (byte) 1,                                 // priority flag
-                null,                                     // schedule delivery time
-                null,                                     // validity period
-                new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), // registered delivery
-                (byte) 0,                                 // replace if present flag
-                new GeneralDataCoding(alphabet),           // data coding
-                (byte) 0,                                 // sm default msg id
-                contentBytes                              // short message
-            );
-            return result.getMessageId();
-        } else {
-            // 长短信：使用 UDH 分片发送
-            return sendLongMessage(smppSession, senderId, destAddress, content, useGsm7bit);
-        }
+        // 单条短信
+        SubmitSmResult result = smppSession.submitShortMessage("CMT",                                    // service type
+            TypeOfNumber.ALPHANUMERIC,                // source addr TON
+            NumberingPlanIndicator.UNKNOWN,            // source addr NPI
+            senderId != null ? senderId : SYSTEM_ID,  // source addr
+            TypeOfNumber.INTERNATIONAL,               // dest addr TON
+            NumberingPlanIndicator.ISDN,              // dest addr NPI
+            destAddress,                              // destination addr
+            new ESMClass(),                           // ESM class
+            (byte) 0,                                 // protocol id
+            (byte) 1,                                 // priority flag
+            null,                                     // schedule delivery time
+            null,                                     // validity period
+            new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), // registered delivery
+            (byte) 0,                                 // replace if present flag
+            new GeneralDataCoding(Alphabet.ALPHA_DEFAULT),           // data coding
+            (byte) 0,                                 // sm default msg id
+            contentBytes                              // short message
+        );
+        return result.getMessageId();
     }
 
     @Override
     public SmsReportResult queryReport(List<String> msgIds) {
         List<SmsReportResult.SmsStatus> statusList = new ArrayList<>();
-        SmsReportResult.PriceDetail priceDetail = new SmsReportResult.PriceDetail(
-            BigDecimal.valueOf(0.0031), "USD", 1, BigDecimal.valueOf(0.0031), null, null, null, null
-        );
+        SmsReportResult.PriceDetail priceDetail = new SmsReportResult.PriceDetail(BigDecimal.valueOf(0.0031), "USD", 1, BigDecimal.valueOf(0.0031), null, null, null, null);
         // 收集Redis中未命中的msgId，后续通过query_sm主动查询
         List<String> missedMsgIds = new ArrayList<>();
 
@@ -231,14 +202,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             if (value != null) {
                 try {
                     JSONObject jsonObject = JSONUtil.parseObj(value.toString());
-                    SmsReportResult.SmsStatus status = new SmsReportResult.SmsStatus(
-                        jsonObject.getStr("msgId"),
-                        jsonObject.getStr("phoneNumber"),
-                        jsonObject.getInt("status"),
-                        jsonObject.getStr("statusDesc"),
-                        jsonObject.getStr("receiveTime"),
-                        priceDetail
-                    );
+                    SmsReportResult.SmsStatus status = new SmsReportResult.SmsStatus(jsonObject.getStr("msgId"), jsonObject.getStr("phoneNumber"), jsonObject.getInt("status"), jsonObject.getStr("statusDesc"), jsonObject.getStr("receiveTime"), priceDetail);
                     statusList.add(status);
                     redisTemplate.opsForHash().delete(RedisConstants.Sms.SMPP_DLR_HASH, msgId);
                 } catch (Exception e) {
@@ -282,12 +246,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
 
         for (String msgId : msgIds) {
             try {
-                QuerySmResult queryResult = smppSession.queryShortMessage(
-                    msgId,
-                    TypeOfNumber.INTERNATIONAL,
-                    NumberingPlanIndicator.ISDN,
-                    ""
-                );
+                QuerySmResult queryResult = smppSession.queryShortMessage(msgId, TypeOfNumber.INTERNATIONAL, NumberingPlanIndicator.ISDN, "");
 
                 MessageState messageState = queryResult.getMessageState();
                 // 跳过中间态（ENROUTE=发送中），只返回终态结果
@@ -299,14 +258,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
                 String statusDesc = convertMessageStateToChinese(messageState);
                 String receiveTime = parseDlrDate(queryResult.getFinalDate());
 
-                SmsReportResult.SmsStatus status = new SmsReportResult.SmsStatus(
-                    msgId,
-                    null,
-                    statusCode,
-                    statusDesc,
-                    receiveTime,
-                    priceDetail
-                );
+                SmsReportResult.SmsStatus status = new SmsReportResult.SmsStatus(msgId, null, statusCode, statusDesc, receiveTime, priceDetail);
                 statusList.add(status);
             } catch (Exception e) {
                 log.debug("query_sm查询消息状态失败, msgId: {}, 原因: {}", msgId, e.getMessage());
@@ -400,19 +352,14 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             newSession.setMessageReceiverListener(listener);
             log.info("已注册SMPP消息接收监听器");
 
-            newSession.connectAndBind(
-                SMPP_HOST,
-                SMPP_PORT,
-                new BindParameter(
-                    BindType.BIND_TRX,           // 收发模式
-                    SYSTEM_ID,                    // system_id
-                    PASSWORD,                     // password
-                    "CMT",                        // system_type
-                    TypeOfNumber.UNKNOWN,         // addr_ton
-                    NumberingPlanIndicator.UNKNOWN, // addr_npi
-                    null                          // address_range
-                )
-            );
+            newSession.connectAndBind(SMPP_HOST, SMPP_PORT, new BindParameter(BindType.BIND_TRX,           // 收发模式
+                SYSTEM_ID,                    // system_id
+                PASSWORD,                     // password
+                "CMT",                        // system_type
+                TypeOfNumber.UNKNOWN,         // addr_ton
+                NumberingPlanIndicator.UNKNOWN, // addr_npi
+                null                          // address_range
+            ));
 
             log.info("SMPP连接建立成功 - {}:{}, systemId: {}, sessionState: {}", SMPP_HOST, SMPP_PORT, SYSTEM_ID, newSession.getSessionState());
             session = newSession;
@@ -431,9 +378,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
      * @param content     短信内容
      * @return 第一条分片的消息ID
      */
-    private String sendLongMessage(SMPPSession smppSession, String senderId, String destAddress, String content, boolean useGsm7bit)
-        throws PDUException, ResponseTimeoutException, InvalidResponseException,
-        NegativeResponseException, IOException {
+    private String sendLongMessage(SMPPSession smppSession, String senderId, String destAddress, String content, boolean useGsm7bit) throws PDUException, ResponseTimeoutException, InvalidResponseException, NegativeResponseException, IOException {
 
         byte[] contentBytes;
         Alphabet alphabet;
@@ -461,8 +406,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             int length = Math.min(maxSegmentSize, contentBytes.length - offset);
 
             // 构造 UDH (User Data Header)
-            byte[] udh = new byte[]{
-                0x05,           // UDH Length
+            byte[] udh = new byte[]{0x05,           // UDH Length
                 0x00,           // IEI: Concatenated short messages
                 0x03,           // IEDL: Information element data length
                 refNum,         // Reference number
@@ -478,25 +422,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             // ESMClass with UDHI bit set (0x40)
             ESMClass esmClass = new ESMClass((byte) 0x40);
 
-            SubmitSmResult submitSmResult = smppSession.submitShortMessage(
-                "CMT",
-                TypeOfNumber.ALPHANUMERIC,
-                NumberingPlanIndicator.UNKNOWN,
-                senderId != null ? senderId : SYSTEM_ID,
-                TypeOfNumber.INTERNATIONAL,
-                NumberingPlanIndicator.ISDN,
-                destAddress,
-                esmClass,
-                (byte) 0,
-                (byte) 1,
-                null,
-                null,
-                new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE),
-                (byte) 0,
-                new GeneralDataCoding(alphabet),
-                (byte) 0,
-                messageWithUdh
-            );
+            SubmitSmResult submitSmResult = smppSession.submitShortMessage("CMT", TypeOfNumber.ALPHANUMERIC, NumberingPlanIndicator.UNKNOWN, senderId != null ? senderId : SYSTEM_ID, TypeOfNumber.INTERNATIONAL, NumberingPlanIndicator.ISDN, destAddress, esmClass, (byte) 0, (byte) 1, null, null, new RegisteredDelivery(SMSCDeliveryReceipt.SUCCESS_FAILURE), (byte) 0, new GeneralDataCoding(alphabet), (byte) 0, messageWithUdh);
             if (i == 0) {
                 firstMsgId = submitSmResult.getMessageId();
             }
@@ -571,26 +497,15 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
         // 解析 done date 为可读格式
         String receiveTime = parseDlrDate(doneDate);
 
-        SmsReportResult.SmsStatus smsStatus = new SmsReportResult.SmsStatus(
-            msgId,
-            deliverSm.getSourceAddr(),
-            statusCode,
-            statusDesc,
-            receiveTime,
-            null  // SMPP 协议不返回费用详情
+        SmsReportResult.SmsStatus smsStatus = new SmsReportResult.SmsStatus(msgId, deliverSm.getSourceAddr(), statusCode, statusDesc, receiveTime, null  // SMPP 协议不返回费用详情
         );
 
         // 存入 Redis Hash，定时任务消费后删除
         try {
-            redisTemplate.opsForHash().put(
-                RedisConstants.Sms.SMPP_DLR_HASH,
-                msgId,
-                JSONUtil.toJsonStr(smsStatus)
-            );
+            redisTemplate.opsForHash().put(RedisConstants.Sms.SMPP_DLR_HASH, msgId, JSONUtil.toJsonStr(smsStatus));
             // 设置2天过期时间，避免数据积累过大
             redisTemplate.expire(RedisConstants.Sms.SMPP_DLR_HASH, 2, TimeUnit.DAYS);
-            log.info("SMPP投递回执已存入Redis - msgId: {}, stat: {}, statusCode: {}, phone: {}",
-                msgId, stat, statusCode, deliverSm.getSourceAddr());
+            log.info("SMPP投递回执已存入Redis - msgId: {}, stat: {}, statusCode: {}, phone: {}", msgId, stat, statusCode, deliverSm.getSourceAddr());
         } catch (Exception e) {
             log.error("SMPP投递回执存入Redis失败, msgId: {}", msgId, e);
         }
@@ -668,8 +583,7 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
         }
         try {
             String pattern = dlrDate.length() >= 12 ? "yyMMddHHmmss" : "yyMMddHHmm";
-            LocalDateTime dateTime = LocalDateTime.parse(dlrDate.substring(0, pattern.length()),
-                DateTimeFormatter.ofPattern(pattern));
+            LocalDateTime dateTime = LocalDateTime.parse(dlrDate.substring(0, pattern.length()), DateTimeFormatter.ofPattern(pattern));
             return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         } catch (Exception e) {
             log.warn("解析DLR日期失败: {}", dlrDate);
