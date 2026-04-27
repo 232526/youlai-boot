@@ -291,8 +291,13 @@ public class SmsPhoneRecordServiceImpl extends ServiceImpl<SmsPhoneRecordMapper,
         try {
             return DateUtil.parseLocalDateTime(receiveTimeStr);
         } catch (Exception e) {
-            log.warn("解析接收时间失败: {}", receiveTimeStr, e);
-            return null;
+            // Hutool无法解析带时区偏移的ISO 8601格式(如 2026-04-27T18:05:20+08:00)，尝试用OffsetDateTime解析
+            try {
+                return java.time.OffsetDateTime.parse(receiveTimeStr).toLocalDateTime();
+            } catch (Exception ex) {
+                log.warn("解析接收时间失败: {}", receiveTimeStr, ex);
+                return null;
+            }
         }
     }
 
