@@ -71,7 +71,13 @@ public class OnbukaSmsChannelStrategy implements SmsChannelStrategy {
 
             // 每个号码添加+91区号前缀
             List<String> numbersWithPrefix = phoneNumbers.stream()
-                .map(num -> num.startsWith("+91") ? num : "+91" + num)
+                .map(num -> {
+                    if (num.length() > 10) {
+                        return num;
+                    } else {
+                        return num.startsWith("91") ? num : "+91" + num;
+                    }
+                })
                 .toList();
 
             final String params = JSONUtil.createObj()

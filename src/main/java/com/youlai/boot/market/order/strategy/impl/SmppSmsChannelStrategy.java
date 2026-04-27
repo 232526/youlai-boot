@@ -121,10 +121,12 @@ public class SmppSmsChannelStrategy implements SmsChannelStrategy {
             List<String> msgIds = new ArrayList<>();
 
             for (String phoneNumber : phoneNumbers) {
-                // 添加+91区号前缀
-                String fullNumber = phoneNumber.startsWith("+91") ? phoneNumber : "+91" + phoneNumber;
-                // SMPP 协议中号码不带+号
-                String destAddress = fullNumber.startsWith("+") ? fullNumber.substring(1) : fullNumber;
+                String destAddress = phoneNumber;
+                if (phoneNumber.length() <= 10) {
+                    // 添加+91区号前缀
+                    destAddress = phoneNumber.startsWith("91") ? phoneNumber : "91" + phoneNumber;
+                }
+
 
                 try {
                     String msgId = submitSingleMessage(smppSession, senderId, destAddress, content);
