@@ -76,9 +76,13 @@ public class UserPageVO {
     @JsonFormat(pattern = "yyyy/MM/dd HH:mm")
     private LocalDateTime createTime;
 
-
     @Schema(description = "明文密码")
     private String showPassword;
 
+    @Schema(description = "密钥")
+    private String apiKey;
+
+    @Schema(description = "密钥")
+    private String secretKey;
 }
 

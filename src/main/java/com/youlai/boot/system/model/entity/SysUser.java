@@ -116,5 +116,14 @@ public class SysUser extends BaseEntity {
      */
     private String showPassword;
 
+    /**
+     * API Key（用于开放接口鉴权）
+     */
+    private String apiKey;
+
+    /**
+     * API Secret（用于开放接口签名验证）
+     */
+    private String apiSecret;
 
 }
