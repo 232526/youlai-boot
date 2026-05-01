@@ -338,9 +338,9 @@ public class TelegramBotService {
             response.append("\n💵 账户余额:").append(sysUser.getPrice()).append("\n");
             response.append("💲 SMS单价:").append(sysUser.getSmsUnitPrice()).append("\n");
             if (sysUser.getPrice() >= 0) {
-                response.append("⭐ SMS剩余发送条数为:").append((int) (sysUser.getPrice() / sysUser.getSmsUnitPrice())).append("\n");
+                response.append("⭐ SMS剩余条数为:").append((int) (sysUser.getPrice() / sysUser.getSmsUnitPrice())).append("\n");
             } else {
-                response.append("⭐ SMS剩余发送条数为: 0").append("\n");
+                response.append("⭐ SMS剩余条数为: 0").append("\n");
             }
 
             response.append("\n⏰ 查询时间: ").append(java.time.LocalDateTime.now().format(
