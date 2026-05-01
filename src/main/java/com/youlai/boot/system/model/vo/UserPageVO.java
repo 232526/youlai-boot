@@ -83,6 +83,6 @@ public class UserPageVO {
     private String apiKey;
 
     @Schema(description = "密钥")
-    private String secretKey;
+    private String apiSecret;
 }
 

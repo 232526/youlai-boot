@@ -23,7 +23,7 @@
         u.ws_channel_id,
         u.show_password,
         u.api_key,
-        u.secret_key,
+        u.api_secret,
         d.NAME AS dept_name,
         GROUP_CONCAT( r.NAME ) AS roleNames,
         u.create_time
