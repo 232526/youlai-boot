@@ -222,6 +222,16 @@ wx:
     appid: Your_AppId
     secret: Your_AppSecret
 
+# SMPP 服务端配置（对外提供SMPP协议接口给下游客户端）
+smpp:
+  server:
+    enabled: true
+    port: 12775
+    session-timeout: 60000
+    max-sessions: 50
+    max-tps: 100
+    enquire-link-timeout: 30000
+
 # Telegram Bot 配置
 telegram:
   bot:
