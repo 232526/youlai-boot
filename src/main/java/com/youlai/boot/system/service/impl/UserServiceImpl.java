@@ -47,6 +47,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.security.SecureRandom;
 
 /**
  * 用户业务实现类
@@ -790,6 +791,66 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             return null;
         }
         return this.getById(userId);
+    }
+
+    /**
+     * 重置用户的 API Key 和 API Secret
+     * <p>
+     * apiKey: 16位随机字符串（前缀 ak_）
+     * apiSecret: 8位随机字符串
+     *
+     * @param userId 用户ID
+     * @return 包含新 apiKey 和 apiSecret 的 Map
+     */
+    @Override
+    public Map<String, String> resetUserApiCredentials(Long userId) {
+        SysUser user = this.getById(userId);
+        Assert.notNull(user, "用户不存在");
+
+        // 生成 apiKey: ak_ + 13位随机字符 = 16位
+        String apiKey = "ak_" + generateRandomString(13);
+        // 生成 apiSecret: 8位随机字符
+        String apiSecret = generateRandomString(8);
+
+        // 更新数据库
+        boolean result = this.update(new LambdaUpdateWrapper<SysUser>()
+            .eq(SysUser::getId, userId)
+            .set(SysUser::getApiKey, apiKey)
+            .set(SysUser::getApiSecret, apiSecret)
+        );
+        Assert.isTrue(result, "更新 API 凭证失败");
+
+        // 清除用户缓存，确保新凭证立即生效
+        try {
+            String cacheKey = RedisConstants.System.USER_INFO.replace("{}", String.valueOf(userId));
+            redisTemplate.delete(cacheKey);
+            log.info("已清除用户缓存, userId: {}", userId);
+        } catch (Exception e) {
+            log.warn("清除用户缓存失败, userId: {}", userId, e);
+        }
+
+        log.info("重置用户 API 凭证成功, userId: {}, apiKey: {}", userId, apiKey);
+
+        Map<String, String> resultData = new HashMap<>();
+        resultData.put("apiKey", apiKey);
+        resultData.put("apiSecret", apiSecret);
+        return resultData;
+    }
+
+    /**
+     * 生成指定长度的随机字符串（大小写字母 + 数字）
+     *
+     * @param length 长度
+     * @return 随机字符串
+     */
+    private String generateRandomString(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
 

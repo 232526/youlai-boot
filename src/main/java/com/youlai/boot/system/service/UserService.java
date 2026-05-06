@@ -13,6 +13,7 @@ import com.youlai.boot.system.model.vo.UserProfileVO;
 import com.youlai.boot.system.model.form.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户业务接口
@@ -208,5 +209,16 @@ public interface UserService extends IService<SysUser> {
      * @return {@link SysUser} 用户信息
      */
     SysUser getUserByIdNoCache(Long userId);
+
+    /**
+     * 重置用户的 API Key 和 API Secret
+     * <p>
+     * apiKey: 16位随机字符串（前缀 ak_）
+     * apiSecret: 8位随机字符串
+     *
+     * @param userId 用户ID
+     * @return 包含新 apiKey 和 apiSecret 的 Map
+     */
+    Map<String, String> resetUserApiCredentials(Long userId);
 
 }

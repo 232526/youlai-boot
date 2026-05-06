@@ -41,6 +41,7 @@ import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 用户控制层
@@ -273,6 +274,17 @@ public class UserController {
     ) {
         boolean result = userService.unbindEmail(data);
         return Result.judge(result);
+    }
+
+    @Operation(summary = "重置用户 API 凭证", description = "重新生成用户的 apiKey 和 apiSecret，apiKey 为 16 位，apiSecret 为 8 位")
+    @PutMapping(value = "/{userId}/api-credentials/reset")
+    @PreAuthorize("@ss.hasPerm('sys:user:update')")
+    @Log(module = LogModuleEnum.USER, value = ActionTypeEnum.UPDATE)
+    public Result<Map<String, String>> resetUserApiCredentials(
+            @Parameter(description = "用户ID") @PathVariable Long userId
+    ) {
+        Map<String, String> credentials = userService.resetUserApiCredentials(userId);
+        return Result.success(credentials);
     }
 
 }
