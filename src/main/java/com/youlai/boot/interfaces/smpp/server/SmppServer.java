@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
@@ -103,6 +104,9 @@ public class SmppServer {
                     // 在线程池中处理绑定请求
                     sessionExecutor.submit(() -> handleSession(serverSession));
 
+                } catch (SocketTimeoutException e) {
+                    // accept 超时是正常现象，无客户端连接时会定期触发，忽略即可
+                    log.debug("SMPP服务端: accept等待超时，继续等待新连接");
                 } catch (IOException e) {
                     if (running.get()) {
                         log.error("SMPP服务端: 接受连接异常", e);
